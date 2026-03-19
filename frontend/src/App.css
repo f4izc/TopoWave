@@ -1,34 +1,100 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* VHF-SHF Path Profiler - Tactical Theme */
+
+/* Plotly chart customization */
+.js-plotly-plot .plotly .modebar {
+  background: transparent !important;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+.js-plotly-plot .plotly .modebar-btn {
+  color: #888 !important;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+.js-plotly-plot .plotly .modebar-btn:hover {
+  color: #00FF41 !important;
 }
 
-.App-link {
-    color: #61dafb;
+.js-plotly-plot .plotly .modebar-btn.active {
+  color: #00FF41 !important;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* Custom select styling */
+[data-radix-select-viewport] {
+  background: #0A0A0A !important;
+}
+
+[data-radix-select-item] {
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+[data-radix-select-item]:hover,
+[data-radix-select-item][data-highlighted] {
+  background: rgba(0, 255, 65, 0.1) !important;
+  color: #00FF41 !important;
+}
+
+/* Slider customization */
+[data-radix-slider-track] {
+  background: #222 !important;
+}
+
+[data-radix-slider-range] {
+  background: #00FF41 !important;
+}
+
+[data-radix-slider-thumb] {
+  background: #00FF41 !important;
+  border: 2px solid #000 !important;
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.5) !important;
+}
+
+[data-radix-slider-thumb]:focus {
+  outline: none !important;
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.8) !important;
+}
+
+/* Tooltip styling */
+[data-radix-tooltip-content] {
+  background: #0A0A0A !important;
+  border: 1px solid #333 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 11px !important;
+}
+
+/* Input focus glow */
+input:focus,
+select:focus,
+[data-radix-select-trigger]:focus {
+  box-shadow: 0 0 0 1px rgba(0, 255, 65, 0.3), 0 0 10px rgba(0, 255, 65, 0.1) !important;
+}
+
+/* Button hover effect */
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.metric-card {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .metric-value {
+    font-size: 1.25rem;
+  }
+  
+  .corner-brackets::before,
+  .corner-brackets::after {
+    width: 8px;
+    height: 8px;
+  }
 }
