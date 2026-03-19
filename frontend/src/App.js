@@ -4,7 +4,7 @@ import axios from "axios";
 import Plotly from "plotly.js-basic-dist-min";
 import createPlotlyComponent from "react-plotly.js/factory";
 import { Toaster, toast } from "sonner";
-import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search } from "lucide-react";
+import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search, Coffee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -314,6 +314,7 @@ function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [serverWaking, setServerWaking] = useState(false);
 
   // Generate share URL
   const shareUrl = useMemo(() => {
@@ -381,6 +382,12 @@ function App() {
 
     setLoading(true);
     setError(null);
+    setServerWaking(false);
+
+    // Timer to show "server waking up" message after 3 seconds
+    const wakingTimer = setTimeout(() => {
+      setServerWaking(true);
+    }, 3000);
 
     try {
       const response = await axios.post(`${API}/calculate-path`, {
@@ -390,7 +397,11 @@ function App() {
         height_b: heightB,
         num_points: numPoints,
         band: band || null,
+      }, {
+        timeout: 60000 // 60 seconds timeout for cold start
       });
+      clearTimeout(wakingTimer);
+      setServerWaking(false);
       setResult(response.data);
       if (response.data.is_clear) {
         toast.success("CLEAR PATH", { description: `Distance: ${response.data.distance_km} km` });
@@ -398,7 +409,11 @@ function App() {
         toast.error("OBSTRUCTED", { description: "Le trajet est obstrué par le relief" });
       }
     } catch (err) {
-      const message = err.response?.data?.detail || "Erreur de calcul du profil";
+      clearTimeout(wakingTimer);
+      setServerWaking(false);
+      const message = err.response?.data?.detail || err.code === 'ECONNABORTED' 
+        ? "Le serveur met trop de temps à répondre. Réessayez dans quelques secondes."
+        : "Erreur de calcul du profil";
       setError(message);
       toast.error("Erreur", { description: message });
     } finally {
@@ -801,7 +816,27 @@ function App() {
                 <div className="absolute top-2 left-2 text-[10px] md:text-xs font-mono text-muted-foreground z-20">
                   TERRAIN PROFILE
                 </div>
-                {result ? (
+                {loading ? (
+                  <div className="h-[300px] md:h-[400px] flex items-center justify-center">
+                    <div className="text-center">
+                      {serverWaking ? (
+                        <>
+                          <Coffee className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 text-warning animate-pulse" />
+                          <p className="text-sm md:text-base font-mono text-warning mb-2">Réveil du serveur en cours...</p>
+                          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                            Le serveur était en veille pour économiser les ressources. 
+                            Première connexion ~30 secondes.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                          <p className="text-xs md:text-sm font-mono text-muted-foreground">Calcul en cours...</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : result ? (
                   <Plot
                     data={plotData}
                     layout={plotLayout}

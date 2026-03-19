@@ -7,12 +7,15 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 ## [1.3.0] - 2026-03-19
 
 ### Ajouté
+- **Message de réveil serveur** : Indication visuelle quand le backend se réveille (plan gratuit Render)
 - Configuration pour déploiement Render (render.yaml)
 - README séparés pour frontend et backend
 - Documentation de déploiement complète
+- Timeout 60s pour les requêtes API (cold start)
 
 ### Modifié
 - Structure du projet optimisée pour déploiement multi-services
+- Meilleure gestion des erreurs réseau
 
 ---
 
