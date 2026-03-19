@@ -3,16 +3,28 @@ import "@/App.css";
 import axios from "axios";
 import Plotly from "plotly.js-basic-dist-min";
 import createPlotlyComponent from "react-plotly.js/factory";
-
-const Plot = createPlotlyComponent(Plotly);
 import { Toaster, toast } from "sonner";
-import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info } from "lucide-react";
+import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+const Plot = createPlotlyComponent(Plotly);
+
+// Fix Leaflet default marker icon
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+});
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -50,6 +62,114 @@ const formatLocator = (value) => {
   return value.toUpperCase().slice(0, 8);
 };
 
+// Convert lat/lon to Maidenhead locator (6 characters)
+const latLonToMaidenhead = (lat, lon) => {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWX";
+  
+  lon = lon + 180;
+  lat = lat + 90;
+  
+  const field_lon = Math.floor(lon / 20);
+  const field_lat = Math.floor(lat / 10);
+  
+  const square_lon = Math.floor((lon % 20) / 2);
+  const square_lat = Math.floor(lat % 10);
+  
+  const subsquare_lon = Math.floor((lon % 2) * 12);
+  const subsquare_lat = Math.floor((lat % 1) * 24);
+  
+  return (
+    chars[field_lon] +
+    chars[field_lat] +
+    square_lon.toString() +
+    square_lat.toString() +
+    chars[subsquare_lon].toLowerCase() +
+    chars[subsquare_lat].toLowerCase()
+  );
+};
+
+// Map picker component
+const MapPicker = ({ position, onSelect }) => {
+  useMapEvents({
+    click(e) {
+      onSelect(e.latlng);
+    },
+  });
+  
+  return position ? <Marker position={position} /> : null;
+};
+
+// Map Dialog component
+const MapDialog = ({ open, onClose, onSelect, title, initialPosition }) => {
+  const [position, setPosition] = useState(initialPosition);
+  
+  const handleSelect = (latlng) => {
+    setPosition([latlng.lat, latlng.lng]);
+  };
+  
+  const handleConfirm = () => {
+    if (position) {
+      const locator = latLonToMaidenhead(position[0], position[1]);
+      onSelect(locator.toUpperCase(), position);
+      onClose();
+    }
+  };
+  
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl w-[95vw] h-[80vh] flex flex-col bg-card border-border p-0">
+        <DialogHeader className="p-4 border-b border-border">
+          <DialogTitle className="font-heading text-primary tracking-widest flex items-center gap-2">
+            <MapPin className="w-5 h-5" />
+            {title}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 relative">
+          <MapContainer
+            center={position || [48.8566, 2.3522]}
+            zoom={6}
+            style={{ height: "100%", width: "100%" }}
+            className="z-0"
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+            <MapPicker position={position} onSelect={handleSelect} />
+          </MapContainer>
+          {position && (
+            <div className="absolute bottom-4 left-4 bg-card/95 border border-border p-3 z-[1000] font-mono text-sm">
+              <div className="text-muted-foreground text-xs mb-1">POSITION SELECTIONNEE</div>
+              <div className="text-primary font-bold">{latLonToMaidenhead(position[0], position[1]).toUpperCase()}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {position[0].toFixed(4)}°, {position[1].toFixed(4)}°
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="p-4 border-t border-border flex justify-end gap-3">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="rounded-none border-border text-muted-foreground hover:bg-muted"
+            data-testid="map-cancel-btn"
+          >
+            ANNULER
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={!position}
+            className="rounded-none bg-primary text-black hover:bg-primary/80 disabled:opacity-50"
+            data-testid="map-confirm-btn"
+          >
+            CONFIRMER
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 function App() {
   // Form state
   const [locatorA, setLocatorA] = useState(() => localStorage.getItem(LS_KEYS.LOCATOR_A) || "");
@@ -58,6 +178,10 @@ function App() {
   const [heightB, setHeightB] = useState(() => parseFloat(localStorage.getItem(LS_KEYS.HEIGHT_B)) || 10);
   const [numPoints, setNumPoints] = useState(() => parseInt(localStorage.getItem(LS_KEYS.NUM_POINTS)) || 50);
   const [band, setBand] = useState(() => localStorage.getItem(LS_KEYS.BAND) || "");
+
+  // Map dialog state
+  const [mapDialogOpen, setMapDialogOpen] = useState(false);
+  const [mapDialogStation, setMapDialogStation] = useState(null); // 'A' or 'B'
 
   // Results state
   const [result, setResult] = useState(null);
@@ -83,6 +207,19 @@ function App() {
   useEffect(() => {
     localStorage.setItem(LS_KEYS.BAND, band);
   }, [band]);
+
+  const openMapDialog = (station) => {
+    setMapDialogStation(station);
+    setMapDialogOpen(true);
+  };
+
+  const handleMapSelect = (locator) => {
+    if (mapDialogStation === 'A') {
+      setLocatorA(locator);
+    } else {
+      setLocatorB(locator);
+    }
+  };
 
   const calculatePath = useCallback(async () => {
     if (!validateLocator(locatorA)) {
@@ -207,34 +344,34 @@ function App() {
     const layout = {
       paper_bgcolor: "rgba(0,0,0,0)",
       plot_bgcolor: "rgba(0,0,0,0)",
-      font: { color: "#888", family: "JetBrains Mono", size: 11 },
-      margin: { t: 30, r: 30, b: 50, l: 60 },
+      font: { color: "#888", family: "JetBrains Mono", size: 10 },
+      margin: { t: 20, r: 20, b: 40, l: 50 },
       xaxis: {
-        title: { text: "Distance (km)", font: { color: "#888" } },
+        title: { text: "Distance (km)", font: { color: "#888", size: 10 } },
         gridcolor: "#222",
         zerolinecolor: "#333",
-        tickfont: { color: "#888" },
+        tickfont: { color: "#888", size: 9 },
       },
       yaxis: {
-        title: { text: "Altitude (m)", font: { color: "#888" } },
+        title: { text: "Altitude (m)", font: { color: "#888", size: 10 } },
         gridcolor: "#222",
         zerolinecolor: "#333",
-        tickfont: { color: "#888" },
+        tickfont: { color: "#888", size: 9 },
         range: [Math.max(0, minElevation - 50), maxElevation + 100],
       },
       legend: {
         orientation: "h",
-        y: -0.15,
+        y: -0.2,
         x: 0.5,
         xanchor: "center",
-        font: { color: "#888", size: 10 },
+        font: { color: "#888", size: 9 },
         bgcolor: "rgba(0,0,0,0)",
       },
       hovermode: "x unified",
       hoverlabel: {
         bgcolor: "#0A0A0A",
         bordercolor: "#333",
-        font: { color: "#E0E0E0", family: "JetBrains Mono" },
+        font: { color: "#E0E0E0", family: "JetBrains Mono", size: 10 },
       },
     };
 
@@ -250,45 +387,66 @@ function App() {
           style: { background: '#0A0A0A', border: '1px solid #333', fontFamily: 'JetBrains Mono' }
         }} />
         
+        {/* Map Dialog */}
+        <MapDialog
+          open={mapDialogOpen}
+          onClose={() => setMapDialogOpen(false)}
+          onSelect={handleMapSelect}
+          title={`SELECTIONNER STATION ${mapDialogStation}`}
+          initialPosition={null}
+        />
+        
         {/* Header */}
         <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50" data-testid="header">
-          <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Radio className="w-6 h-6 text-primary" />
-              <h1 className="text-lg font-heading tracking-widest text-primary">VHF-SHF PATH PROFILER</h1>
+          <div className="container mx-auto px-3 md:px-4 h-12 md:h-14 flex items-center justify-between">
+            <div className="flex items-center gap-2 md:gap-3">
+              <Radio className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+              <h1 className="text-base md:text-lg font-heading tracking-widest text-primary">TOPOWAVE</h1>
             </div>
-            <div className="text-xs text-muted-foreground font-mono">
+            <div className="text-[10px] md:text-xs text-muted-foreground font-mono hidden sm:block">
               K = 4/3 Earth Model
             </div>
           </div>
         </header>
 
-        <main className="container mx-auto p-4 md:p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <main className="container mx-auto p-3 md:p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4">
             {/* Input Panel */}
-            <aside className="lg:col-span-3 space-y-4" data-testid="input-panel">
-              <div className="bg-card/50 border border-border p-4 corner-brackets">
-                <h2 className="text-sm font-heading tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-                  <Target className="w-4 h-4" />
+            <aside className="lg:col-span-3 space-y-3 md:space-y-4" data-testid="input-panel">
+              {/* Station A */}
+              <div className="bg-card/50 border border-border p-3 md:p-4 corner-brackets">
+                <h2 className="text-xs md:text-sm font-heading tracking-widest text-muted-foreground mb-3 md:mb-4 flex items-center gap-2">
+                  <Target className="w-3 h-3 md:w-4 md:h-4" />
                   STATION A
                 </h2>
-                <div className="space-y-3">
+                <div className="space-y-2 md:space-y-3">
                   <div>
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">Locator</Label>
-                    <Input
-                      data-testid="locator-a-input"
-                      value={locatorA}
-                      onChange={(e) => setLocatorA(formatLocator(e.target.value))}
-                      placeholder="JN18DQ"
-                      className="tactical-input mt-1"
-                      maxLength={8}
-                    />
+                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">Locator</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        data-testid="locator-a-input"
+                        value={locatorA}
+                        onChange={(e) => setLocatorA(formatLocator(e.target.value))}
+                        placeholder="JN18DQ"
+                        className="tactical-input flex-1"
+                        maxLength={8}
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => openMapDialog('A')}
+                        className="rounded-none border-border hover:border-primary hover:text-primary shrink-0"
+                        data-testid="map-picker-a-btn"
+                      >
+                        <MapPin className="w-4 h-4" />
+                      </Button>
+                    </div>
                     {locatorA && !validateLocator(locatorA) && (
-                      <p className="text-xs text-destructive mt-1">Format invalide</p>
+                      <p className="text-[10px] md:text-xs text-destructive mt-1">Format invalide</p>
                     )}
                   </div>
                   <div>
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
                       Hauteur antenne (m AGL)
                     </Label>
                     <Input
@@ -304,28 +462,40 @@ function App() {
                 </div>
               </div>
 
-              <div className="bg-card/50 border border-border p-4 corner-brackets">
-                <h2 className="text-sm font-heading tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-                  <Target className="w-4 h-4" />
+              {/* Station B */}
+              <div className="bg-card/50 border border-border p-3 md:p-4 corner-brackets">
+                <h2 className="text-xs md:text-sm font-heading tracking-widest text-muted-foreground mb-3 md:mb-4 flex items-center gap-2">
+                  <Target className="w-3 h-3 md:w-4 md:h-4" />
                   STATION B
                 </h2>
-                <div className="space-y-3">
+                <div className="space-y-2 md:space-y-3">
                   <div>
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">Locator</Label>
-                    <Input
-                      data-testid="locator-b-input"
-                      value={locatorB}
-                      onChange={(e) => setLocatorB(formatLocator(e.target.value))}
-                      placeholder="IN96GC"
-                      className="tactical-input mt-1"
-                      maxLength={8}
-                    />
+                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">Locator</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        data-testid="locator-b-input"
+                        value={locatorB}
+                        onChange={(e) => setLocatorB(formatLocator(e.target.value))}
+                        placeholder="IN96GC"
+                        className="tactical-input flex-1"
+                        maxLength={8}
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => openMapDialog('B')}
+                        className="rounded-none border-border hover:border-primary hover:text-primary shrink-0"
+                        data-testid="map-picker-b-btn"
+                      >
+                        <MapPin className="w-4 h-4" />
+                      </Button>
+                    </div>
                     {locatorB && !validateLocator(locatorB) && (
-                      <p className="text-xs text-destructive mt-1">Format invalide</p>
+                      <p className="text-[10px] md:text-xs text-destructive mt-1">Format invalide</p>
                     )}
                   </div>
                   <div>
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
                       Hauteur antenne (m AGL)
                     </Label>
                     <Input
@@ -341,18 +511,19 @@ function App() {
                 </div>
               </div>
 
-              <div className="bg-card/50 border border-border p-4 corner-brackets">
-                <h2 className="text-sm font-heading tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
+              {/* Parameters */}
+              <div className="bg-card/50 border border-border p-3 md:p-4 corner-brackets">
+                <h2 className="text-xs md:text-sm font-heading tracking-widest text-muted-foreground mb-3 md:mb-4 flex items-center gap-2">
+                  <Settings className="w-3 h-3 md:w-4 md:h-4" />
                   PARAMETRES
                 </h2>
-                <div className="space-y-4">
+                <div className="space-y-3 md:space-y-4">
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+                      <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
                         Points d'echantillonnage
                       </Label>
-                      <span className="text-xs font-mono text-primary">{numPoints}</span>
+                      <span className="text-[10px] md:text-xs font-mono text-primary">{numPoints}</span>
                     </div>
                     <Slider
                       data-testid="num-points-slider"
@@ -366,7 +537,7 @@ function App() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+                      <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
                         Bande (Fresnel)
                       </Label>
                       <Tooltip>
@@ -379,7 +550,7 @@ function App() {
                       </Tooltip>
                     </div>
                     <Select value={band} onValueChange={setBand} data-testid="band-select">
-                      <SelectTrigger className="tactical-input" data-testid="band-select-trigger">
+                      <SelectTrigger className="tactical-input text-xs md:text-sm" data-testid="band-select-trigger">
                         <SelectValue placeholder="Optionnel" />
                       </SelectTrigger>
                       <SelectContent>
@@ -395,11 +566,12 @@ function App() {
                 </div>
               </div>
 
+              {/* Calculate Button */}
               <Button
                 data-testid="calculate-btn"
                 onClick={calculatePath}
                 disabled={loading || !validateLocator(locatorA) || !validateLocator(locatorB)}
-                className="w-full h-12 rounded-none border-primary/50 text-primary hover:bg-primary hover:text-black uppercase tracking-wider font-mono transition-all active:scale-95 shadow-[0_0_10px_rgba(0,255,65,0.1)] hover:shadow-[0_0_15px_rgba(0,255,65,0.4)] disabled:opacity-50"
+                className="w-full h-11 md:h-12 rounded-none bg-primary text-black font-bold uppercase tracking-wider font-mono transition-all active:scale-95 hover:bg-primary/90 disabled:opacity-50 disabled:bg-muted disabled:text-muted-foreground"
               >
                 {loading ? (
                   <span className="loading-pulse">CALCUL EN COURS...</span>
@@ -413,15 +585,15 @@ function App() {
             </aside>
 
             {/* Main Content */}
-            <div className="lg:col-span-9 space-y-4">
+            <div className="lg:col-span-9 space-y-3 md:space-y-4">
               {/* Metrics Bar */}
               {result && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3" data-testid="metrics-bar">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 md:gap-3" data-testid="metrics-bar">
                   <div className="metric-card corner-brackets">
                     <div className="metric-label flex items-center gap-1">
                       <Ruler className="w-3 h-3" /> Distance
                     </div>
-                    <div className="metric-value" data-testid="distance-value">
+                    <div className="metric-value text-lg md:text-2xl" data-testid="distance-value">
                       {result.distance_km}
                       <span className="metric-unit">km</span>
                     </div>
@@ -430,7 +602,7 @@ function App() {
                     <div className="metric-label flex items-center gap-1">
                       <Compass className="w-3 h-3" /> Azimut A→B
                     </div>
-                    <div className="metric-value text-secondary" data-testid="azimuth-ab-value">
+                    <div className="metric-value text-secondary text-lg md:text-2xl" data-testid="azimuth-ab-value">
                       {result.azimuth_ab}
                       <span className="metric-unit">°</span>
                     </div>
@@ -439,24 +611,24 @@ function App() {
                     <div className="metric-label flex items-center gap-1">
                       <Compass className="w-3 h-3" /> Azimut B→A
                     </div>
-                    <div className="metric-value text-secondary" data-testid="azimuth-ba-value">
+                    <div className="metric-value text-secondary text-lg md:text-2xl" data-testid="azimuth-ba-value">
                       {result.azimuth_ba}
                       <span className="metric-unit">°</span>
                     </div>
                   </div>
-                  <div className="metric-card corner-brackets">
+                  <div className="metric-card corner-brackets hidden sm:block">
                     <div className="metric-label">Altitude A</div>
-                    <div className="metric-value text-muted-foreground text-lg" data-testid="elevation-a-value">
+                    <div className="metric-value text-muted-foreground text-base md:text-lg" data-testid="elevation-a-value">
                       {result.station_a.elevation}
                       <span className="metric-unit">m</span>
                     </div>
                   </div>
-                  <div className={`metric-card ${result.is_clear ? 'status-clear' : 'status-obstructed'}`}>
+                  <div className={`metric-card col-span-2 sm:col-span-1 ${result.is_clear ? 'status-clear' : 'status-obstructed'}`}>
                     <div className="metric-label flex items-center gap-1">
                       {result.is_clear ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
                       Status
                     </div>
-                    <div className="metric-value text-inherit text-lg" data-testid="status-value">
+                    <div className={`metric-value text-base md:text-lg font-bold ${result.is_clear ? 'text-green-500' : 'text-red-500'}`} data-testid="status-value">
                       {result.is_clear ? "CLEAR" : "OBSTRUCTED"}
                     </div>
                   </div>
@@ -465,7 +637,7 @@ function App() {
 
               {/* Chart Area */}
               <div className="bg-black border border-border relative overflow-hidden scanlines" data-testid="chart-container">
-                <div className="absolute top-2 left-2 text-xs font-mono text-muted-foreground z-20">
+                <div className="absolute top-2 left-2 text-[10px] md:text-xs font-mono text-muted-foreground z-20">
                   TERRAIN PROFILE
                 </div>
                 {result ? (
@@ -478,14 +650,14 @@ function App() {
                       modeBarButtonsToRemove: ['lasso2d', 'select2d'],
                       displaylogo: false,
                     }}
-                    style={{ width: '100%', height: '500px' }}
+                    style={{ width: '100%', height: window.innerWidth < 768 ? '300px' : '400px' }}
                     useResizeHandler
                   />
                 ) : (
-                  <div className="h-[500px] flex items-center justify-center">
+                  <div className="h-[300px] md:h-[400px] flex items-center justify-center">
                     <div className="text-center text-muted-foreground">
-                      <Mountain className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                      <p className="text-sm font-mono">Entrez les locators et calculez le profil</p>
+                      <Mountain className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 opacity-20" />
+                      <p className="text-xs md:text-sm font-mono">Entrez les locators et calculez le profil</p>
                     </div>
                   </div>
                 )}
@@ -493,14 +665,14 @@ function App() {
 
               {/* Fresnel Info */}
               {result && result.fresnel_clearance_percent !== null && (
-                <div className="bg-card/50 border border-warning/30 p-3 flex items-center gap-3" data-testid="fresnel-info">
-                  <div className={`w-3 h-3 rounded-full ${result.fresnel_clearance_percent >= 60 ? 'bg-primary' : result.fresnel_clearance_percent >= 40 ? 'bg-warning' : 'bg-destructive'}`} />
-                  <div className="text-sm">
+                <div className="bg-card/50 border border-warning/30 p-2 md:p-3 flex items-center gap-2 md:gap-3" data-testid="fresnel-info">
+                  <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${result.fresnel_clearance_percent >= 60 ? 'bg-primary' : result.fresnel_clearance_percent >= 40 ? 'bg-warning' : 'bg-destructive'}`} />
+                  <div className="text-xs md:text-sm">
                     <span className="text-muted-foreground">Zone Fresnel ({result.band}):</span>
                     <span className={`ml-2 font-mono font-bold ${result.fresnel_clearance_percent >= 60 ? 'text-primary' : result.fresnel_clearance_percent >= 40 ? 'text-warning' : 'text-destructive'}`}>
                       {result.fresnel_clearance_percent}% de dégagement
                     </span>
-                    <span className="text-muted-foreground ml-2">
+                    <span className="text-muted-foreground ml-2 hidden sm:inline">
                       {result.fresnel_clearance_percent >= 60 ? '(Excellent)' : result.fresnel_clearance_percent >= 40 ? '(Acceptable)' : '(Risque de diffraction)'}
                     </span>
                   </div>
@@ -509,18 +681,18 @@ function App() {
 
               {/* Error Display */}
               {error && (
-                <div className="bg-destructive/10 border border-destructive p-4 text-destructive text-sm font-mono" data-testid="error-display">
+                <div className="bg-destructive/10 border border-destructive p-3 md:p-4 text-destructive text-xs md:text-sm font-mono" data-testid="error-display">
                   <AlertTriangle className="w-4 h-4 inline mr-2" />
                   {error}
                 </div>
               )}
 
               {/* Info Panel */}
-              <div className="bg-card/30 border border-border p-4 text-xs text-muted-foreground font-mono space-y-1">
+              <div className="bg-card/30 border border-border p-3 md:p-4 text-[10px] md:text-xs text-muted-foreground font-mono space-y-1">
                 <p>Modele: Terre 4/3 (Reff = 8500 km) pour simulation de réfraction VHF+</p>
                 <p>API Elevation: Open-TopoData (SRTM 30m)</p>
                 {result && (
-                  <p>
+                  <p className="truncate">
                     Coordonnees: {result.station_a.locator} ({result.station_a.latitude}°, {result.station_a.longitude}°) →{" "}
                     {result.station_b.locator} ({result.station_b.latitude}°, {result.station_b.longitude}°)
                   </p>
