@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-geosearch/dist/geosearch.css";
@@ -283,6 +283,95 @@ const ShareDialog = ({ open, onClose, shareUrl }) => {
   );
 };
 
+// Path Map component - shows the line between two stations
+const PathMap = ({ stationA, stationB, obstructionPoint, showObstruction, onObstructionClose }) => {
+  const centerLat = (stationA.latitude + stationB.latitude) / 2;
+  const centerLon = (stationA.longitude + stationB.longitude) / 2;
+  
+  // Calculate appropriate zoom level based on distance
+  const latDiff = Math.abs(stationA.latitude - stationB.latitude);
+  const lonDiff = Math.abs(stationA.longitude - stationB.longitude);
+  const maxDiff = Math.max(latDiff, lonDiff);
+  const zoom = maxDiff > 5 ? 5 : maxDiff > 2 ? 6 : maxDiff > 1 ? 7 : maxDiff > 0.5 ? 8 : 9;
+  
+  // Custom icons
+  const stationIcon = new L.DivIcon({
+    className: 'custom-marker',
+    html: '<div style="background:#00F0FF;width:12px;height:12px;border-radius:50%;border:2px solid #000;box-shadow:0 0 10px #00F0FF;"></div>',
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  });
+  
+  const obstructionIcon = new L.DivIcon({
+    className: 'custom-marker',
+    html: '<div style="background:#FF3333;width:16px;height:16px;border-radius:50%;border:2px solid #000;box-shadow:0 0 10px #FF3333;display:flex;align-items:center;justify-content:center;color:#000;font-weight:bold;font-size:10px;">X</div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+  
+  return (
+    <div className="bg-card/50 border border-border" data-testid="path-map">
+      <div className="p-2 border-b border-border flex items-center justify-between">
+        <span className="text-xs font-mono text-muted-foreground">CARTE DU TRAJET</span>
+        {showObstruction && obstructionPoint && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onObstructionClose}
+            className="h-6 px-2 text-xs text-warning"
+          >
+            <X className="w-3 h-3 mr-1" /> Fermer obstruction
+          </Button>
+        )}
+      </div>
+      <div style={{ height: "250px" }}>
+        <MapContainer
+          center={showObstruction && obstructionPoint 
+            ? [obstructionPoint.latitude, obstructionPoint.longitude] 
+            : [centerLat, centerLon]}
+          zoom={showObstruction ? 12 : zoom}
+          style={{ height: "100%", width: "100%" }}
+          key={showObstruction ? 'obstruction' : 'path'}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          />
+          {/* Station A marker */}
+          <Marker position={[stationA.latitude, stationA.longitude]} icon={stationIcon}>
+          </Marker>
+          {/* Station B marker */}
+          <Marker position={[stationB.latitude, stationB.longitude]} icon={stationIcon}>
+          </Marker>
+          {/* Path line */}
+          <Polyline
+            positions={[
+              [stationA.latitude, stationA.longitude],
+              [stationB.latitude, stationB.longitude]
+            ]}
+            color="#00FF41"
+            weight={2}
+            opacity={0.8}
+            dashArray="5, 10"
+          />
+          {/* Obstruction marker */}
+          {obstructionPoint && (
+            <Marker position={[obstructionPoint.latitude, obstructionPoint.longitude]} icon={obstructionIcon}>
+            </Marker>
+          )}
+        </MapContainer>
+      </div>
+      <div className="p-2 border-t border-border text-[10px] font-mono text-muted-foreground flex flex-wrap gap-4">
+        <span><span className="inline-block w-2 h-2 rounded-full bg-[#00F0FF] mr-1"></span>{stationA.locator} ({stationA.latitude.toFixed(4)}°, {stationA.longitude.toFixed(4)}°)</span>
+        <span><span className="inline-block w-2 h-2 rounded-full bg-[#00F0FF] mr-1"></span>{stationB.locator} ({stationB.latitude.toFixed(4)}°, {stationB.longitude.toFixed(4)}°)</span>
+        {obstructionPoint && (
+          <span className="text-destructive"><span className="inline-block w-2 h-2 rounded-full bg-destructive mr-1"></span>Obstruction ({obstructionPoint.latitude.toFixed(4)}°, {obstructionPoint.longitude.toFixed(4)}°)</span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 function App() {
   // Parse URL parameters on load
   const getInitialValue = (key, urlParam, defaultValue, parser = (v) => v) => {
@@ -312,12 +401,26 @@ function App() {
   
   // Share dialog state
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  
+  // Obstruction map state
+  const [showObstructionOnMap, setShowObstructionOnMap] = useState(false);
 
   // Results state
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [serverWaking, setServerWaking] = useState(false);
+
+  // Handle click on obstruction point in chart
+  const handlePlotClick = (data) => {
+    if (data.points && data.points[0]) {
+      const point = data.points[0];
+      // Check if clicked on obstruction marker (trace index 3 or has "Obstruction" name)
+      if (point.data.name === "Obstruction" && result?.obstruction_point) {
+        setShowObstructionOnMap(true);
+      }
+    }
+  };
 
   // Generate share URL
   const shareUrl = useMemo(() => {
@@ -435,22 +538,24 @@ function App() {
       {
         x: distances,
         y: elevations,
+        customdata: profile.map((p) => [p.latitude, p.longitude]),
         type: "scatter",
         mode: "lines",
         fill: "tozeroy",
         fillcolor: "rgba(0, 255, 65, 0.15)",
         line: { color: "#00FF41", width: 2 },
         name: "Terrain",
-        hovertemplate: "Distance: %{x:.1f} km<br>Altitude: %{y:.0f} m<extra></extra>",
+        hovertemplate: "Distance: %{x:.1f} km<br>Altitude: %{y:.0f} m<br>GPS: %{customdata[0]:.5f}°, %{customdata[1]:.5f}°<extra></extra>",
       },
       {
         x: distances,
         y: losHeights,
+        customdata: profile.map((p) => [p.latitude, p.longitude]),
         type: "scatter",
         mode: "lines",
         line: { color: "#FF3333", width: 2, dash: "dot" },
         name: "Ligne de visée",
-        hovertemplate: "Distance: %{x:.1f} km<br>LoS: %{y:.0f} m<extra></extra>",
+        hovertemplate: "Distance: %{x:.1f} km<br>LoS: %{y:.0f} m<br>GPS: %{customdata[0]:.5f}°, %{customdata[1]:.5f}°<extra></extra>",
       },
     ];
 
@@ -476,17 +581,22 @@ function App() {
       data.push({
         x: [result.obstruction_point.distance_km],
         y: [result.obstruction_point.elevation],
+        customdata: [[result.obstruction_point.latitude, result.obstruction_point.longitude]],
         type: "scatter",
         mode: "markers",
-        marker: { color: "#FF3333", size: 12, symbol: "x" },
+        marker: { color: "#FF3333", size: 14, symbol: "x" },
         name: "Obstruction",
-        hovertemplate: `Obstruction<br>Distance: ${result.obstruction_point.distance_km} km<br>Altitude: ${result.obstruction_point.elevation} m<extra></extra>`,
+        hovertemplate: `<b>OBSTRUCTION</b><br>Distance: ${result.obstruction_point.distance_km} km<br>Altitude: ${result.obstruction_point.elevation} m<br>GPS: ${result.obstruction_point.latitude}°, ${result.obstruction_point.longitude}°<br><i>Cliquez pour voir sur la carte</i><extra></extra>`,
       });
     }
 
     data.push({
       x: [0, result.distance_km],
       y: [result.station_a.elevation + result.station_a.antenna_height, result.station_b.elevation + result.station_b.antenna_height],
+      customdata: [
+        [result.station_a.latitude, result.station_a.longitude],
+        [result.station_b.latitude, result.station_b.longitude]
+      ],
       type: "scatter",
       mode: "markers+text",
       marker: { color: "#00F0FF", size: 10, symbol: "triangle-up" },
@@ -494,7 +604,7 @@ function App() {
       textposition: "top center",
       textfont: { color: "#00F0FF", size: 10, family: "JetBrains Mono" },
       name: "Stations",
-      hovertemplate: "%{text}<extra></extra>",
+      hovertemplate: "%{text}<br>GPS: %{customdata[0]:.5f}°, %{customdata[1]:.5f}°<extra></extra>",
     });
 
     const maxElevation = Math.max(...elevations, ...losHeights);
@@ -877,6 +987,7 @@ function App() {
                     }}
                     style={{ width: '100%', height: window.innerWidth < 768 ? '300px' : '400px' }}
                     useResizeHandler
+                    onClick={handlePlotClick}
                   />
                 ) : (
                   <div className="h-[300px] md:h-[400px] flex items-center justify-center">
@@ -902,6 +1013,17 @@ function App() {
                     </span>
                   </div>
                 </div>
+              )}
+
+              {/* Path Map */}
+              {result && (
+                <PathMap
+                  stationA={result.station_a}
+                  stationB={result.station_b}
+                  obstructionPoint={result.obstruction_point}
+                  showObstruction={showObstructionOnMap}
+                  onObstructionClose={() => setShowObstructionOnMap(false)}
+                />
               )}
 
               {/* Error Display */}
