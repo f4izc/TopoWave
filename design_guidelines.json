@@ -1,0 +1,133 @@
+{
+  "project_name": "VHF-SHF Path Profiler",
+  "persona": "E1 - The Anti-AI Designer",
+  "design_philosophy": {
+    "core_concept": "Tactical Mission Control",
+    "emotional_tone": "Precision, Authority, Technical, Night-Ops",
+    "visual_style": "Military HUD / SDR Interface / Retro-Futurism",
+    "principles": [
+      "Data Density over Whitespace: Unlike marketing sites, this tool needs density. Think cockpit instruments.",
+      "High Contrast: Green/Amber on Black. No subtle grays.",
+      "Functionality as Aesthetic: The grid lines, the coordinates, the status indicators ARE the decoration.",
+      "Immediate Feedback: Inputs trigger instant calculation updates where possible."
+    ]
+  },
+  "typography": {
+    "font_strategy": "The 'Operator' Look",
+    "primary_font": "Inter (for UI labels)",
+    "secondary_font": "JetBrains Mono (for ALL data, coordinates, and inputs)",
+    "heading_font": "Rajdhani or Share Tech Mono (Import from Google Fonts)",
+    "rules": [
+      "Use Monospace for all numerical data and Grid Locators.",
+      "Headings should be uppercase and tracking-widest.",
+      "Labels should be small (text-xs) and uppercase."
+    ],
+    "google_fonts_import": "@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@500;600;700&display=swap');"
+  },
+  "colors": {
+    "theme": "dark",
+    "palette": {
+      "background": "#050505",
+      "surface": "#0A0A0A",
+      "surface_highlight": "#121212",
+      "border": "#333333",
+      "primary": "#00FF41", 
+      "primary_dim": "#008F11",
+      "secondary": "#00F0FF",
+      "warning": "#FFB000",
+      "danger": "#FF3333",
+      "text_main": "#E0E0E0",
+      "text_muted": "#888888"
+    },
+    "semantic_usage": {
+      "obstruction": "danger",
+      "clear_path": "primary",
+      "fresnel_zone": "warning",
+      "grid_lines": "#222222"
+    },
+    "tailwind_overrides": {
+      "colors": {
+        "background": "hsl(0 0% 2%)",
+        "card": "hsl(0 0% 4%)",
+        "popover": "hsl(0 0% 4%)",
+        "primary": "hsl(135 100% 50%)",
+        "primary-foreground": "hsl(0 0% 0%)",
+        "secondary": "hsl(180 100% 50%)",
+        "muted": "hsl(0 0% 15%)",
+        "accent": "hsl(0 0% 20%)",
+        "destructive": "hsl(0 100% 50%)",
+        "border": "hsl(0 0% 20%)",
+        "input": "hsl(0 0% 20%)",
+        "ring": "hsl(135 100% 50%)"
+      },
+      "borderRadius": {
+        "lg": "0px",
+        "md": "2px",
+        "sm": "1px"
+      }
+    }
+  },
+  "layout_strategy": {
+    "container_style": "Bento Grid / Dashboard Scope",
+    "global_padding": "p-4 md:p-6",
+    "grid_structure": "grid-cols-1 md:grid-cols-12 gap-4",
+    "sections": {
+      "header": "col-span-full h-16 flex items-center justify-between border-b border-border bg-background/95 backdrop-blur",
+      "input_panel": "col-span-full md:col-span-4 lg:col-span-3 row-span-2 bg-card border border-border p-4 flex flex-col gap-6",
+      "main_display": "col-span-full md:col-span-8 lg:col-span-9 h-[500px] bg-black border border-border relative overflow-hidden",
+      "metrics_bar": "col-span-full md:col-span-8 lg:col-span-9 grid grid-cols-2 md:grid-cols-4 gap-4"
+    }
+  },
+  "components": {
+    "general_style": "Sharp edges, 1px borders, technical feel.",
+    "buttons": {
+      "variant": "outline",
+      "classes": "rounded-none border-primary/50 text-primary hover:bg-primary hover:text-black uppercase tracking-wider font-mono transition-all active:scale-95 shadow-[0_0_10px_rgba(0,255,65,0.1)] hover:shadow-[0_0_15px_rgba(0,255,65,0.4)]"
+    },
+    "inputs": {
+      "classes": "rounded-none bg-black border-border focus:border-primary font-mono text-lg tracking-widest uppercase focus:ring-1 focus:ring-primary/50"
+    },
+    "cards": {
+      "classes": "rounded-none border-border bg-card/50 backdrop-blur-sm"
+    },
+    "status_indicators": {
+      "classes": "inline-flex items-center gap-2 px-3 py-1 text-xs font-bold uppercase border"
+    }
+  },
+  "visual_enhancers": {
+    "grid_background": "bg-[linear-gradient(to_right,#1a1a1a_1px,transparent_1px),linear-gradient(to_bottom,#1a1a1a_1px,transparent_1px)] bg-[size:40px_40px]",
+    "corner_brackets": "Use absolute positioned borders on corners of containers to simulate a viewfinder.",
+    "scanlines": "Optional: overlay with pointer-events-none opacity-5 bg-repeat-y bg-[url('https://transparenttextures.com/patterns/black-scales.png')] or similar scanline css."
+  },
+  "charting": {
+    "library": "Plotly.js (via react-plotly.js)",
+    "style": {
+      "paper_bgcolor": "rgba(0,0,0,0)",
+      "plot_bgcolor": "rgba(0,0,0,0)",
+      "font": {
+        "color": "#888",
+        "family": "JetBrains Mono"
+      },
+      "grid_color": "#222",
+      "line_color": "#00FF41",
+      "fill_color": "rgba(0, 255, 65, 0.1)"
+    }
+  },
+  "images": {
+    "instructions": "No external images required. Use CSS patterns and icons.",
+    "icons_library": "lucide-react"
+  },
+  "universal_guidelines": [
+    "ALL interactive elements must have data-testid attributes.",
+    "Use 'sonner' for notifications (e.g., 'Path Obstructed', 'API Error').",
+    "Ensure input validation for Maidenhead locators (e.g., regex pattern).",
+    "Persist user inputs to localStorage immediately on change."
+  ],
+  "instructions_to_main_agent": {
+    "step_1": "Install 'react-plotly.js' and 'plotly.js'.",
+    "step_2": "Update tailwind.config.js with the Tactical color palette and font families.",
+    "step_3": "Create a 'Layout' component that implements the tactical grid and scanline effects.",
+    "step_4": "Build the 'LocatorInput' component with regex validation and auto-formatting.",
+    "step_5": "Implement the 'ProfileChart' using Plotly, ensuring it handles the dark theme correctly."
+  }
+}
