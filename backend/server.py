@@ -24,7 +24,10 @@ EFFECTIVE_EARTH_RADIUS_KM = 8500.0  # 4/3 Earth model for VHF+ propagation
 
 # Amateur radio bands frequencies in MHz
 BAND_FREQUENCIES = {
+    "6m": 50.0,
+    "4m": 70.0,
     "2m": 144.0,
+    "1.25m": 222.0,
     "70cm": 432.0,
     "21cm": 1296.0,
     "13cm": 2320.0,
@@ -283,7 +286,10 @@ async def get_bands():
     """Get available amateur radio bands"""
     return {
         "bands": [
+            {"id": "6m", "name": "6m (VHF)", "frequency_mhz": 50.0},
+            {"id": "4m", "name": "4m (VHF)", "frequency_mhz": 70.0},
             {"id": "2m", "name": "2m (VHF)", "frequency_mhz": 144.0},
+            {"id": "1.25m", "name": "1.25m (VHF)", "frequency_mhz": 222.0},
             {"id": "70cm", "name": "70cm (UHF)", "frequency_mhz": 432.0},
             {"id": "21cm", "name": "21cm (L-Band)", "frequency_mhz": 1296.0},
             {"id": "13cm", "name": "13cm (S-Band)", "frequency_mhz": 2320.0},

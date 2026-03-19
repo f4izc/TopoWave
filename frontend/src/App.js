@@ -43,7 +43,10 @@ const LS_KEYS = {
 
 // Amateur radio bands
 const BANDS = [
+  { id: "6m", name: "6m (50 MHz)", frequency: 50 },
+  { id: "4m", name: "4m (70 MHz)", frequency: 70 },
   { id: "2m", name: "2m (144 MHz)", frequency: 144 },
+  { id: "1.25m", name: "1.25m (222 MHz)", frequency: 222 },
   { id: "70cm", name: "70cm (432 MHz)", frequency: 432 },
   { id: "21cm", name: "21cm (1296 MHz)", frequency: 1296 },
   { id: "13cm", name: "13cm (2320 MHz)", frequency: 2320 },
@@ -921,6 +924,7 @@ function App() {
                     {result.station_b.locator} ({result.station_b.latitude}°, {result.station_b.longitude}°)
                   </p>
                 )}
+                <p className="text-warning/70 italic pt-1">Application expérimentale générée avec l'IA</p>
               </div>
             </div>
           </div>
