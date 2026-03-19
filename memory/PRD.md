@@ -42,13 +42,11 @@ Application web "Stateless" (sans base de données) nommée "TopoWave" (ancienne
 - Validation des locators Maidenhead (4-8 caractères)
 - Persistance localStorage des paramètres
 
-### Version 1.1 - UI Improvements
-- App renommée: "TopoWave"
-- Bouton calculer avec texte visible (noir sur vert)
-- Status OBSTRUCTED en rouge, CLEAR en vert
-- Carte interactive Leaflet avec thème sombre CARTO
-- Conversion carte → locator Maidenhead
-- Responsive mobile complet
+### Version 1.2 - Partage & Précision
+- Lien de partage avec paramètres URL (?a=...&b=...&ha=...&hb=...&n=...&band=...)
+- Locators 6-10 caractères (AA00aa, AA00aa00, AA00aa00aa) pour plus de précision
+- Carte affiche locator 10 caractères (précision ~3m)
+- Recherche d'adresse dans la carte (OpenStreetMap Nominatim)
 
 ## Tech Stack
 - Backend: Python/FastAPI
@@ -75,3 +73,4 @@ Application web "Stateless" (sans base de données) nommée "TopoWave" (ancienne
 ## Next Tasks
 - Export des résultats (CSV/JSON/PDF)
 - Animation du tracé du terrain
+- Auto-calcul lors du chargement avec paramètres URL
