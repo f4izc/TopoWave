@@ -203,6 +203,132 @@ class VHFPathProfilerTester:
             return True
         return False
 
+    def test_locator_6_chars(self):
+        """Test 6-character locator validation"""
+        success, response = self.run_test(
+            "6-character locator (JN18DU)",
+            "POST",
+            "calculate-path",
+            200,
+            data={
+                "locator_a": "JN18DU",
+                "locator_b": "JN18CV",
+                "height_a": 10.0,
+                "height_b": 10.0,
+                "num_points": 30
+            },
+            timeout=45
+        )
+        if success:
+            print("   ✅ 6-character locator accepted")
+            return True
+        return False
+
+    def test_locator_8_chars(self):
+        """Test 8-character locator validation"""
+        success, response = self.run_test(
+            "8-character locator (JN18DU55)",
+            "POST",
+            "calculate-path",
+            200,
+            data={
+                "locator_a": "JN18DU55",
+                "locator_b": "JN18CV22",
+                "height_a": 10.0,
+                "height_b": 10.0,
+                "num_points": 30
+            },
+            timeout=45
+        )
+        if success:
+            print("   ✅ 8-character locator accepted")
+            return True
+        return False
+
+    def test_locator_10_chars(self):
+        """Test 10-character locator validation"""
+        success, response = self.run_test(
+            "10-character locator (JN18DU55IX)",
+            "POST",
+            "calculate-path",
+            200,
+            data={
+                "locator_a": "JN18DU55IX",
+                "locator_b": "JN18CV22GH",
+                "height_a": 10.0,
+                "height_b": 10.0,
+                "num_points": 30
+            },
+            timeout=45
+        )
+        if success:
+            print("   ✅ 10-character locator accepted")
+            return True
+        return False
+
+    def test_locator_invalid_lengths(self):
+        """Test invalid locator lengths (5, 7, 9, 11 chars)"""
+        invalid_locators = [
+            ("5-char", "JN18D"),
+            ("7-char", "JN18DU5"),
+            ("9-char", "JN18DU55I"),
+            ("11-char", "JN18DU55IXZ")
+        ]
+        
+        all_passed = True
+        for name, locator in invalid_locators:
+            success, response = self.run_test(
+                f"Invalid {name} locator ({locator})",
+                "POST",
+                "calculate-path",
+                422,  # Validation error
+                data={
+                    "locator_a": locator,
+                    "locator_b": "JN18DU",
+                    "height_a": 10.0,
+                    "height_b": 10.0,
+                    "num_points": 30
+                }
+            )
+            if not success:
+                all_passed = False
+        
+        if all_passed:
+            print("   ✅ All invalid lengths correctly rejected")
+            return True
+        return False
+
+    def test_locator_invalid_patterns(self):
+        """Test invalid locator patterns within valid lengths"""
+        invalid_locators = [
+            ("Invalid field chars", "ZZ18DU"),  # Z not in A-R range
+            ("Invalid square chars", "JNA8DU"),  # A not in 0-9 range
+            ("Invalid subsquare chars", "JN18ZZ"),  # Z not in A-X range
+        ]
+        
+        all_passed = True
+        for name, locator in invalid_locators:
+            success, response = self.run_test(
+                f"Invalid pattern - {name} ({locator})",
+                "POST",
+                "calculate-path",
+                422,  # Validation error
+                data={
+                    "locator_a": locator,
+                    "locator_b": "JN18DU",
+                    "height_a": 10.0,
+                    "height_b": 10.0,
+                    "num_points": 30
+                }
+            )
+            if not success:
+                all_passed = False
+        
+        if all_passed:
+            print("   ✅ All invalid patterns correctly rejected")
+            return True
+        return False
+
 def main():
     print("🚀 Starting VHF-SHF Path Profiler API Tests")
     print("=" * 60)
@@ -218,6 +344,12 @@ def main():
         tester.test_calculate_path_invalid_locator,
         tester.test_calculate_path_invalid_band,
         tester.test_calculate_path_missing_fields,
+        # New locator validation tests (6-10 characters)
+        tester.test_locator_6_chars,
+        tester.test_locator_8_chars,
+        tester.test_locator_10_chars,
+        tester.test_locator_invalid_lengths,
+        tester.test_locator_invalid_patterns,
     ]
     
     passed_tests = []

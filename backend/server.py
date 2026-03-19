@@ -33,8 +33,8 @@ BAND_FREQUENCIES = {
 
 # Models
 class PathRequest(BaseModel):
-    locator_a: str = Field(..., min_length=4, max_length=8, description="Maidenhead locator for station A")
-    locator_b: str = Field(..., min_length=4, max_length=8, description="Maidenhead locator for station B")
+    locator_a: str = Field(..., min_length=6, max_length=10, description="Maidenhead locator for station A")
+    locator_b: str = Field(..., min_length=6, max_length=10, description="Maidenhead locator for station B")
     height_a: float = Field(..., ge=0, le=1000, description="Antenna height AGL in meters for station A")
     height_b: float = Field(..., ge=0, le=1000, description="Antenna height AGL in meters for station B")
     num_points: int = Field(default=50, ge=10, le=200, description="Number of elevation sample points")
@@ -43,20 +43,21 @@ class PathRequest(BaseModel):
     @field_validator('locator_a', 'locator_b')
     @classmethod
     def validate_locator(cls, v: str) -> str:
-        """Validate Maidenhead Grid Locator format"""
+        """Validate Maidenhead Grid Locator format (6-10 characters)"""
         v = v.upper()
-        if len(v) < 4 or len(v) > 8 or len(v) % 2 != 0:
-            raise ValueError('Invalid locator length (must be 4, 6, or 8 characters)')
+        if len(v) < 6 or len(v) > 10 or len(v) % 2 != 0:
+            raise ValueError('Invalid locator length (must be 6, 8, or 10 characters)')
         
-        # Check pattern: AA00[aa][00]
+        # Check pattern: AA00aa[00][aa]
         patterns = [
             (0, 2, 'ABCDEFGHIJKLMNOPQR'),  # Field
             (2, 4, '0123456789'),           # Square
+            (4, 6, 'ABCDEFGHIJKLMNOPQRSTUVWX'),  # Subsquare
         ]
-        if len(v) >= 6:
-            patterns.append((4, 6, 'ABCDEFGHIJKLMNOPQRSTUVWX'))  # Subsquare
-        if len(v) == 8:
+        if len(v) >= 8:
             patterns.append((6, 8, '0123456789'))  # Extended square
+        if len(v) == 10:
+            patterns.append((8, 10, 'ABCDEFGHIJKLMNOPQRSTUVWX'))  # Sub-subsquare
         
         for start, end, valid_chars in patterns:
             for char in v[start:end]:
@@ -106,34 +107,39 @@ def maidenhead_to_latlon(locator: str) -> tuple:
     lon = -180.0
     lat = -90.0
     
-    # Field (first 2 chars)
+    # Field (first 2 chars) - 20° x 10°
     lon += (ord(locator[0]) - ord('A')) * 20
     lat += (ord(locator[1]) - ord('A')) * 10
     
-    # Square (next 2 chars)
+    # Square (next 2 chars) - 2° x 1°
     lon += int(locator[2]) * 2
     lat += int(locator[3]) * 1
     
-    # Subsquare (optional 2 chars)
+    # Subsquare (chars 5-6) - 5' x 2.5'
     if len(locator) >= 6:
         lon += (ord(locator[4]) - ord('A')) * (2 / 24)
         lat += (ord(locator[5]) - ord('A')) * (1 / 24)
     
-    # Extended square (optional 2 chars)
-    if len(locator) == 8:
+    # Extended square (chars 7-8) - 30" x 15"
+    if len(locator) >= 8:
         lon += int(locator[6]) * (2 / 240)
         lat += int(locator[7]) * (1 / 240)
     
-    # Calculate center of the square
-    if len(locator) == 4:
-        lon += 1.0  # Center of 2° square
-        lat += 0.5  # Center of 1° square
-    elif len(locator) == 6:
+    # Sub-subsquare (chars 9-10) - 3" x 1.5"
+    if len(locator) >= 10:
+        lon += (ord(locator[8]) - ord('A')) * (2 / 240 / 24)
+        lat += (ord(locator[9]) - ord('A')) * (1 / 240 / 24)
+    
+    # Calculate center of the smallest square
+    if len(locator) == 6:
         lon += 1 / 24  # Center of subsquare
         lat += 0.5 / 24
     elif len(locator) == 8:
         lon += 1 / 240  # Center of extended square
         lat += 0.5 / 240
+    elif len(locator) == 10:
+        lon += 1 / 240 / 24  # Center of sub-subsquare
+        lat += 0.5 / 240 / 24
     
     return (lat, lon)
 

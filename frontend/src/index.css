@@ -214,6 +214,52 @@
   color: #00FF41 !important;
 }
 
+/* Leaflet Geosearch customization */
+.leaflet-control-geosearch {
+  background: #0a0a0a !important;
+  border: 1px solid #333 !important;
+}
+
+.leaflet-control-geosearch form {
+  background: #0a0a0a !important;
+}
+
+.leaflet-control-geosearch form input {
+  background: #0a0a0a !important;
+  color: #e0e0e0 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  border: 1px solid #333 !important;
+}
+
+.leaflet-control-geosearch form input::placeholder {
+  color: #666 !important;
+}
+
+.leaflet-control-geosearch .results {
+  background: #0a0a0a !important;
+  border: 1px solid #333 !important;
+}
+
+.leaflet-control-geosearch .results > * {
+  background: #0a0a0a !important;
+  color: #e0e0e0 !important;
+  border-bottom: 1px solid #222 !important;
+}
+
+.leaflet-control-geosearch .results > *:hover {
+  background: rgba(0, 255, 65, 0.1) !important;
+  color: #00FF41 !important;
+}
+
+.leaflet-control-geosearch a.reset {
+  background: #0a0a0a !important;
+  color: #888 !important;
+}
+
+.leaflet-control-geosearch a.reset:hover {
+  color: #00FF41 !important;
+}
+
 /* Mobile responsive adjustments */
 @media (max-width: 640px) {
   .metric-value {

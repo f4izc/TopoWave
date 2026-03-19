@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import "@/App.css";
 import axios from "axios";
 import Plotly from "plotly.js-basic-dist-min";
 import createPlotlyComponent from "react-plotly.js/factory";
 import { Toaster, toast } from "sonner";
-import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X } from "lucide-react";
+import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,9 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet-geosearch/dist/geosearch.css";
+import { GeoSearchControl, OpenStreetMapProvider } from "leaflet-geosearch";
 
 const Plot = createPlotlyComponent(Plotly);
 
@@ -48,37 +50,41 @@ const BANDS = [
   { id: "3cm", name: "3cm (10368 MHz)", frequency: 10368 },
 ];
 
-// Validate Maidenhead locator
+// Validate Maidenhead locator (6-10 characters)
 const validateLocator = (locator) => {
-  if (!locator || locator.length < 4 || locator.length > 8 || locator.length % 2 !== 0) {
+  if (!locator || locator.length < 6 || locator.length > 10 || locator.length % 2 !== 0) {
     return false;
   }
-  const pattern = /^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}([0-9]{2})?)?$/;
+  // Pattern: AA00aa[00][aa]
+  const pattern = /^[A-Ra-r]{2}[0-9]{2}[A-Xa-x]{2}([0-9]{2})?([A-Xa-x]{2})?$/;
   return pattern.test(locator);
 };
 
 // Format locator input
 const formatLocator = (value) => {
-  return value.toUpperCase().slice(0, 8);
+  return value.toUpperCase().slice(0, 10);
 };
 
-// Convert lat/lon to Maidenhead locator (6 characters)
-const latLonToMaidenhead = (lat, lon) => {
+// Convert lat/lon to Maidenhead locator (10 characters for precision)
+const latLonToMaidenhead = (lat, lon, precision = 10) => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWX";
   
   lon = lon + 180;
   lat = lat + 90;
   
+  // Field (20° x 10°)
   const field_lon = Math.floor(lon / 20);
   const field_lat = Math.floor(lat / 10);
   
+  // Square (2° x 1°)
   const square_lon = Math.floor((lon % 20) / 2);
   const square_lat = Math.floor(lat % 10);
   
+  // Subsquare (5' x 2.5')
   const subsquare_lon = Math.floor((lon % 2) * 12);
   const subsquare_lat = Math.floor((lat % 1) * 24);
   
-  return (
+  let locator = (
     chars[field_lon] +
     chars[field_lat] +
     square_lon.toString() +
@@ -86,6 +92,57 @@ const latLonToMaidenhead = (lat, lon) => {
     chars[subsquare_lon].toLowerCase() +
     chars[subsquare_lat].toLowerCase()
   );
+  
+  if (precision >= 8) {
+    // Extended square (30" x 15")
+    const ext_lon = Math.floor(((lon % 2) * 12 - subsquare_lon) * 10);
+    const ext_lat = Math.floor(((lat % 1) * 24 - subsquare_lat) * 10);
+    locator += ext_lon.toString() + ext_lat.toString();
+  }
+  
+  if (precision >= 10) {
+    // Sub-subsquare (3" x 1.5")
+    const subsubsquare_lon = Math.floor((((lon % 2) * 12 - subsquare_lon) * 10 - Math.floor(((lon % 2) * 12 - subsquare_lon) * 10)) * 24);
+    const subsubsquare_lat = Math.floor((((lat % 1) * 24 - subsquare_lat) * 10 - Math.floor(((lat % 1) * 24 - subsquare_lat) * 10)) * 24);
+    locator += chars[subsubsquare_lon].toLowerCase() + chars[subsubsquare_lat].toLowerCase();
+  }
+  
+  return locator.toUpperCase();
+};
+
+// Search control component for Leaflet
+const SearchControl = ({ onLocationFound }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    const provider = new OpenStreetMapProvider();
+    
+    const searchControl = new GeoSearchControl({
+      provider: provider,
+      style: 'bar',
+      showMarker: false,
+      showPopup: false,
+      autoClose: true,
+      retainZoomLevel: false,
+      animateZoom: true,
+      keepResult: false,
+      searchLabel: 'Rechercher une adresse...',
+    });
+    
+    map.addControl(searchControl);
+    
+    map.on('geosearch/showlocation', (result) => {
+      if (result.location) {
+        onLocationFound([result.location.y, result.location.x]);
+      }
+    });
+    
+    return () => {
+      map.removeControl(searchControl);
+    };
+  }, [map, onLocationFound]);
+  
+  return null;
 };
 
 // Map picker component
@@ -104,16 +161,27 @@ const MapDialog = ({ open, onClose, onSelect, title, initialPosition }) => {
   const [position, setPosition] = useState(initialPosition);
   
   const handleSelect = (latlng) => {
-    setPosition([latlng.lat, latlng.lng]);
+    if (Array.isArray(latlng)) {
+      setPosition(latlng);
+    } else {
+      setPosition([latlng.lat, latlng.lng]);
+    }
   };
   
   const handleConfirm = () => {
     if (position) {
-      const locator = latLonToMaidenhead(position[0], position[1]);
-      onSelect(locator.toUpperCase(), position);
+      const locator = latLonToMaidenhead(position[0], position[1], 10);
+      onSelect(locator, position);
       onClose();
     }
   };
+  
+  // Reset position when dialog opens
+  useEffect(() => {
+    if (open) {
+      setPosition(initialPosition);
+    }
+  }, [open, initialPosition]);
   
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -135,14 +203,15 @@ const MapDialog = ({ open, onClose, onSelect, title, initialPosition }) => {
               attribution='&copy; <a href="https://carto.com/">CARTO</a>'
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
+            <SearchControl onLocationFound={handleSelect} />
             <MapPicker position={position} onSelect={handleSelect} />
           </MapContainer>
           {position && (
             <div className="absolute bottom-4 left-4 bg-card/95 border border-border p-3 z-[1000] font-mono text-sm">
               <div className="text-muted-foreground text-xs mb-1">POSITION SELECTIONNEE</div>
-              <div className="text-primary font-bold">{latLonToMaidenhead(position[0], position[1]).toUpperCase()}</div>
+              <div className="text-primary font-bold text-lg">{latLonToMaidenhead(position[0], position[1], 10)}</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {position[0].toFixed(4)}°, {position[1].toFixed(4)}°
+                {position[0].toFixed(6)}°, {position[1].toFixed(6)}°
               </div>
             </div>
           )}
@@ -170,23 +239,102 @@ const MapDialog = ({ open, onClose, onSelect, title, initialPosition }) => {
   );
 };
 
+// Share Dialog component
+const ShareDialog = ({ open, onClose, shareUrl }) => {
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareUrl);
+    toast.success("Lien copié !", { description: "Le lien a été copié dans le presse-papier" });
+  };
+  
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg bg-card border-border">
+        <DialogHeader>
+          <DialogTitle className="font-heading text-primary tracking-widest flex items-center gap-2">
+            <Share2 className="w-5 h-5" />
+            PARTAGER CE PROFIL
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Partagez ce lien pour permettre à d'autres radioamateurs de voir ce profil de terrain :
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={shareUrl}
+              readOnly
+              className="tactical-input flex-1 text-xs"
+              data-testid="share-url-input"
+            />
+            <Button
+              onClick={copyToClipboard}
+              className="rounded-none bg-primary text-black hover:bg-primary/80 shrink-0"
+              data-testid="copy-share-btn"
+            >
+              <Copy className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 function App() {
+  // Parse URL parameters on load
+  const getInitialValue = (key, urlParam, defaultValue, parser = (v) => v) => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlValue = urlParams.get(urlParam);
+    if (urlValue !== null) {
+      return parser(urlValue);
+    }
+    const lsValue = localStorage.getItem(key);
+    if (lsValue !== null) {
+      return parser(lsValue);
+    }
+    return defaultValue;
+  };
+
   // Form state
-  const [locatorA, setLocatorA] = useState(() => localStorage.getItem(LS_KEYS.LOCATOR_A) || "");
-  const [locatorB, setLocatorB] = useState(() => localStorage.getItem(LS_KEYS.LOCATOR_B) || "");
-  const [heightA, setHeightA] = useState(() => parseFloat(localStorage.getItem(LS_KEYS.HEIGHT_A)) || 10);
-  const [heightB, setHeightB] = useState(() => parseFloat(localStorage.getItem(LS_KEYS.HEIGHT_B)) || 10);
-  const [numPoints, setNumPoints] = useState(() => parseInt(localStorage.getItem(LS_KEYS.NUM_POINTS)) || 50);
-  const [band, setBand] = useState(() => localStorage.getItem(LS_KEYS.BAND) || "");
+  const [locatorA, setLocatorA] = useState(() => getInitialValue(LS_KEYS.LOCATOR_A, 'a', ''));
+  const [locatorB, setLocatorB] = useState(() => getInitialValue(LS_KEYS.LOCATOR_B, 'b', ''));
+  const [heightA, setHeightA] = useState(() => getInitialValue(LS_KEYS.HEIGHT_A, 'ha', 10, parseFloat));
+  const [heightB, setHeightB] = useState(() => getInitialValue(LS_KEYS.HEIGHT_B, 'hb', 10, parseFloat));
+  const [numPoints, setNumPoints] = useState(() => getInitialValue(LS_KEYS.NUM_POINTS, 'n', 50, parseInt));
+  const [band, setBand] = useState(() => getInitialValue(LS_KEYS.BAND, 'band', ''));
 
   // Map dialog state
   const [mapDialogOpen, setMapDialogOpen] = useState(false);
-  const [mapDialogStation, setMapDialogStation] = useState(null); // 'A' or 'B'
+  const [mapDialogStation, setMapDialogStation] = useState(null);
+  
+  // Share dialog state
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   // Results state
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Generate share URL
+  const shareUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (locatorA) params.set('a', locatorA);
+    if (locatorB) params.set('b', locatorB);
+    params.set('ha', heightA.toString());
+    params.set('hb', heightB.toString());
+    params.set('n', numPoints.toString());
+    if (band && band !== 'none') params.set('band', band);
+    return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+  }, [locatorA, locatorB, heightA, heightB, numPoints, band]);
+
+  // Auto-calculate if URL has parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('a') && urlParams.has('b')) {
+      // Clear URL parameters after reading
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Persist to localStorage
   useEffect(() => {
@@ -223,11 +371,11 @@ function App() {
 
   const calculatePath = useCallback(async () => {
     if (!validateLocator(locatorA)) {
-      toast.error("Locator A invalide", { description: "Format: AA00aa ou AA00aa00" });
+      toast.error("Locator A invalide", { description: "Format: AA00aa, AA00aa00 ou AA00aa00aa (6-10 car.)" });
       return;
     }
     if (!validateLocator(locatorB)) {
-      toast.error("Locator B invalide", { description: "Format: AA00aa ou AA00aa00" });
+      toast.error("Locator B invalide", { description: "Format: AA00aa, AA00aa00 ou AA00aa00aa (6-10 car.)" });
       return;
     }
 
@@ -268,7 +416,6 @@ function App() {
     const losHeights = profile.map((p) => p.los_height);
 
     const data = [
-      // Terrain fill
       {
         x: distances,
         y: elevations,
@@ -280,7 +427,6 @@ function App() {
         name: "Terrain",
         hovertemplate: "Distance: %{x:.1f} km<br>Altitude: %{y:.0f} m<extra></extra>",
       },
-      // Line of Sight
       {
         x: distances,
         y: losHeights,
@@ -292,7 +438,6 @@ function App() {
       },
     ];
 
-    // Fresnel zone if band selected
     const hasFresnelData = result.band && profile.some((p) => p.fresnel_radius !== null);
     if (hasFresnelData) {
       const fresnelUpper = profile.map((p) => (p.fresnel_radius ? p.los_height + p.fresnel_radius : p.los_height));
@@ -311,7 +456,6 @@ function App() {
       });
     }
 
-    // Obstruction marker
     if (result.obstruction_point) {
       data.push({
         x: [result.obstruction_point.distance_km],
@@ -324,7 +468,6 @@ function App() {
       });
     }
 
-    // Station markers
     data.push({
       x: [0, result.distance_km],
       y: [result.station_a.elevation + result.station_a.antenna_height, result.station_b.elevation + result.station_b.antenna_height],
@@ -396,6 +539,13 @@ function App() {
           initialPosition={null}
         />
         
+        {/* Share Dialog */}
+        <ShareDialog
+          open={shareDialogOpen}
+          onClose={() => setShareDialogOpen(false)}
+          shareUrl={shareUrl}
+        />
+        
         {/* Header */}
         <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50" data-testid="header">
           <div className="container mx-auto px-3 md:px-4 h-12 md:h-14 flex items-center justify-between">
@@ -403,8 +553,19 @@ function App() {
               <Radio className="w-5 h-5 md:w-6 md:h-6 text-primary" />
               <h1 className="text-base md:text-lg font-heading tracking-widest text-primary">TOPOWAVE</h1>
             </div>
-            <div className="text-[10px] md:text-xs text-muted-foreground font-mono hidden sm:block">
-              K = 4/3 Earth Model
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] md:text-xs text-muted-foreground font-mono hidden sm:block">
+                K = 4/3 Earth Model
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShareDialogOpen(true)}
+                className="rounded-none text-muted-foreground hover:text-primary hover:bg-transparent"
+                data-testid="share-btn"
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </header>
@@ -421,15 +582,15 @@ function App() {
                 </h2>
                 <div className="space-y-2 md:space-y-3">
                   <div>
-                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">Locator</Label>
+                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">Locator (6-10 car.)</Label>
                     <div className="flex gap-2 mt-1">
                       <Input
                         data-testid="locator-a-input"
                         value={locatorA}
                         onChange={(e) => setLocatorA(formatLocator(e.target.value))}
-                        placeholder="JN18DQ"
+                        placeholder="JN18DQ96"
                         className="tactical-input flex-1"
-                        maxLength={8}
+                        maxLength={10}
                       />
                       <Button
                         variant="outline"
@@ -442,7 +603,7 @@ function App() {
                       </Button>
                     </div>
                     {locatorA && !validateLocator(locatorA) && (
-                      <p className="text-[10px] md:text-xs text-destructive mt-1">Format invalide</p>
+                      <p className="text-[10px] md:text-xs text-destructive mt-1">Format: AA00aa (6-10 caractères)</p>
                     )}
                   </div>
                   <div>
@@ -470,15 +631,15 @@ function App() {
                 </h2>
                 <div className="space-y-2 md:space-y-3">
                   <div>
-                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">Locator</Label>
+                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">Locator (6-10 car.)</Label>
                     <div className="flex gap-2 mt-1">
                       <Input
                         data-testid="locator-b-input"
                         value={locatorB}
                         onChange={(e) => setLocatorB(formatLocator(e.target.value))}
-                        placeholder="IN96GC"
+                        placeholder="IN96GC45"
                         className="tactical-input flex-1"
-                        maxLength={8}
+                        maxLength={10}
                       />
                       <Button
                         variant="outline"
@@ -491,7 +652,7 @@ function App() {
                       </Button>
                     </div>
                     {locatorB && !validateLocator(locatorB) && (
-                      <p className="text-[10px] md:text-xs text-destructive mt-1">Format invalide</p>
+                      <p className="text-[10px] md:text-xs text-destructive mt-1">Format: AA00aa (6-10 caractères)</p>
                     )}
                   </div>
                   <div>
