@@ -408,8 +408,6 @@ function App() {
       setResult(response.data);
       if (response.data.is_clear) {
         toast.success("CLEAR PATH", { description: `Distance: ${response.data.distance_km} km` });
-      } else {
-        toast.error("OBSTRUCTED", { description: "Le trajet est obstrué par le relief" });
       }
     } catch (err) {
       clearTimeout(wakingTimer);
