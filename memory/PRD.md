@@ -1,7 +1,7 @@
-# VHF-SHF Path Profiler - PRD
+# TopoWave - PRD
 
 ## Original Problem Statement
-Application web "Stateless" (sans base de données) nommée "VHF-SHF Path Profiler" pour radioamateurs avec:
+Application web "Stateless" (sans base de données) nommée "TopoWave" (anciennement VHF-SHF Path Profiler) pour radioamateurs avec:
 - Saisie de deux Maidenhead Grid Locators et hauteurs d'antennes AGL
 - Conversion des locators en coordonnées décimales
 - Calculs géodésiques: distance (Haversine) et azimut (Great Circle)
@@ -10,6 +10,8 @@ Application web "Stateless" (sans base de données) nommée "VHF-SHF Path Profil
 - Analyse d'obstruction et ligne de visée
 - Zone de Fresnel optionnelle pour bandes amateur (2m, 70cm, 21cm, 13cm, 3cm)
 - Interface tactique sombre
+- Carte interactive pour sélection des positions (Leaflet)
+- Responsive mobile
 
 ## User Personas
 - **Radioamateurs VHF/UHF/SHF**: Utilisateurs techniques qui planifient des liaisons radio et ont besoin d'analyser la propagation entre deux points
@@ -27,19 +29,30 @@ Application web "Stateless" (sans base de données) nommée "VHF-SHF Path Profil
 10. ✅ Graphique Plotly.js (terrain + LoS + Fresnel)
 11. ✅ Persistance localStorage
 12. ✅ Interface tactique sombre
+13. ✅ Carte interactive Leaflet pour sélection positions
+14. ✅ Responsive mobile
 
 ## What's Been Implemented (March 2026)
+
+### Version 1.0
 - Backend FastAPI complet avec tous les calculs radio
 - Frontend React avec thème tactique (JetBrains Mono + Rajdhani)
 - Graphique Plotly.js avec terrain, ligne de visée, zone Fresnel
 - Dashboard métriques (distance, azimuts, altitude, status)
 - Validation des locators Maidenhead (4-8 caractères)
 - Persistance localStorage des paramètres
-- Gestion erreurs API élévation
+
+### Version 1.1 - UI Improvements
+- App renommée: "TopoWave"
+- Bouton calculer avec texte visible (noir sur vert)
+- Status OBSTRUCTED en rouge, CLEAR en vert
+- Carte interactive Leaflet avec thème sombre CARTO
+- Conversion carte → locator Maidenhead
+- Responsive mobile complet
 
 ## Tech Stack
 - Backend: Python/FastAPI
-- Frontend: React + Tailwind CSS + Plotly.js
+- Frontend: React + Tailwind CSS + Plotly.js + Leaflet
 - API externe: Open-TopoData (SRTM 30m)
 - Pas de base de données (stateless)
 
@@ -47,6 +60,7 @@ Application web "Stateless" (sans base de données) nommée "VHF-SHF Path Profil
 
 ### P0 - Completed
 - Tous les requirements de base implémentés
+- Corrections UI et responsive mobile
 
 ### P1 - Future Enhancements
 - Export PDF du profil
@@ -54,10 +68,10 @@ Application web "Stateless" (sans base de données) nommée "VHF-SHF Path Profil
 - Mode hors ligne avec cache élévation
 
 ### P2 - Nice to Have
-- Carte interactive pour sélection des points
 - Calcul multi-hop (relais)
 - Intégration données météo pour réfraction
+- Partage de lien avec paramètres
 
 ## Next Tasks
-- Amélioration UX mobile (responsive)
-- Export des résultats (CSV/JSON)
+- Export des résultats (CSV/JSON/PDF)
+- Animation du tracé du terrain

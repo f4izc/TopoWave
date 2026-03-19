@@ -571,7 +571,7 @@ function App() {
                 data-testid="calculate-btn"
                 onClick={calculatePath}
                 disabled={loading || !validateLocator(locatorA) || !validateLocator(locatorB)}
-                className="w-full h-11 md:h-12 rounded-none bg-primary text-black font-bold uppercase tracking-wider font-mono transition-all active:scale-95 hover:bg-primary/90 disabled:opacity-50 disabled:bg-muted disabled:text-muted-foreground"
+                className="w-full h-11 md:h-12 rounded-none bg-primary text-black font-bold uppercase tracking-wider font-mono transition-all active:scale-95 hover:bg-primary/90 disabled:opacity-100 disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <span className="loading-pulse">CALCUL EN COURS...</span>
