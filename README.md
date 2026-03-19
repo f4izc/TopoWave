@@ -56,14 +56,25 @@
 - **Open-TopoData** : Données d'élévation SRTM 30m (gratuit, ~100 req/jour)
 - **OpenStreetMap Nominatim** : Géocodage pour recherche d'adresse
 
-## Installation
+## Déploiement
 
-### Prérequis
-- Node.js 18+
-- Python 3.11+
-- yarn
+### Option 1 : Render (Recommandé - Gratuit)
 
-### Backend
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
+1. Forkez ce repository sur GitHub
+2. Connectez-vous à [Render](https://render.com)
+3. Cliquez sur "New" → "Blueprint"
+4. Sélectionnez votre repository
+5. Render détectera automatiquement le `render.yaml` et créera :
+   - `topowave-api` : Backend FastAPI (Web Service gratuit)
+   - `topowave` : Frontend React (Static Site gratuit)
+
+**Note** : Le backend gratuit s'endort après 15min d'inactivité (~30s au réveil).
+
+### Option 2 : Développement local
+
+#### Backend
 ```bash
 cd backend
 python -m venv venv
@@ -72,7 +83,7 @@ pip install -r requirements.txt
 uvicorn server:app --reload --port 8001
 ```
 
-### Frontend
+#### Frontend
 ```bash
 cd frontend
 yarn install
@@ -165,6 +176,11 @@ Calcule le profil de terrain entre deux stations.
 
 Ce projet a été développé avec [Emergent](https://emergent.sh), une plateforme de développement assistée par IA qui permet de créer des applications full-stack rapidement.
 
+### Prérequis
+- Node.js 18+
+- Python 3.11+
+- yarn
+
 ### Structure du projet
 ```
 /app
@@ -180,6 +196,8 @@ Ce projet a été développé avec [Emergent](https://emergent.sh), une platefor
 │   ├── package.json      # Dépendances Node
 │   └── .env              # Configuration
 └── README.md
+├── CHANGELOG.md          # Historique des versions
+├── render.yaml           # Configuration Render Blueprint
 ```
 
 ## Roadmap
