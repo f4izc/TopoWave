@@ -284,15 +284,30 @@ const ShareDialog = ({ open, onClose, shareUrl }) => {
 };
 
 // Path Map component - shows the line between two stations
+const FitBoundsComponent = ({ stationA, stationB, obstructionPoint, showObstruction }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (showObstruction && obstructionPoint) {
+      map.setView([obstructionPoint.latitude, obstructionPoint.longitude], 12);
+    } else {
+      const bounds = L.latLngBounds(
+        [stationA.latitude, stationA.longitude],
+        [stationB.latitude, stationB.longitude]
+      );
+      if (obstructionPoint) {
+        bounds.extend([obstructionPoint.latitude, obstructionPoint.longitude]);
+      }
+      map.fitBounds(bounds, { padding: [30, 30] });
+    }
+  }, [map, stationA, stationB, obstructionPoint, showObstruction]);
+  
+  return null;
+};
+
 const PathMap = ({ stationA, stationB, obstructionPoint, showObstruction, onObstructionClose }) => {
   const centerLat = (stationA.latitude + stationB.latitude) / 2;
   const centerLon = (stationA.longitude + stationB.longitude) / 2;
-  
-  // Calculate appropriate zoom level based on distance
-  const latDiff = Math.abs(stationA.latitude - stationB.latitude);
-  const lonDiff = Math.abs(stationA.longitude - stationB.longitude);
-  const maxDiff = Math.max(latDiff, lonDiff);
-  const zoom = maxDiff > 5 ? 5 : maxDiff > 2 ? 6 : maxDiff > 1 ? 7 : maxDiff > 0.5 ? 8 : 9;
   
   // Custom icons
   const stationIcon = new L.DivIcon({
@@ -326,16 +341,19 @@ const PathMap = ({ stationA, stationB, obstructionPoint, showObstruction, onObst
       </div>
       <div style={{ height: "250px" }}>
         <MapContainer
-          center={showObstruction && obstructionPoint 
-            ? [obstructionPoint.latitude, obstructionPoint.longitude] 
-            : [centerLat, centerLon]}
-          zoom={showObstruction ? 12 : zoom}
+          center={[centerLat, centerLon]}
+          zoom={6}
           style={{ height: "100%", width: "100%" }}
-          key={showObstruction ? 'obstruction' : 'path'}
         >
           <TileLayer
             attribution='&copy; <a href="https://carto.com/">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          />
+          <FitBoundsComponent 
+            stationA={stationA} 
+            stationB={stationB} 
+            obstructionPoint={obstructionPoint}
+            showObstruction={showObstruction}
           />
           {/* Station A marker */}
           <Marker position={[stationA.latitude, stationA.longitude]} icon={stationIcon}>
