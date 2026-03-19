@@ -622,17 +622,31 @@ function App() {
                     )}
                   </div>
                   <div>
-                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
-                      Hauteur antenne (m AGL)
-                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
+                        Hauteur antenne (m AGL)
+                      </Label>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="w-3 h-3 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[200px]">
+                          <p className="text-xs">Hauteur en mètre de l'antenne au dessus du sol</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <Input
                       data-testid="height-a-input"
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={heightA}
-                      onChange={(e) => setHeightA(Math.max(0, Math.min(1000, parseFloat(e.target.value) || 0)))}
-                      min={0}
-                      max={1000}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                        const num = parseFloat(val) || 0;
+                        setHeightA(Math.max(0, Math.min(1000, num)));
+                      }}
                       className="tactical-input mt-1"
+                      placeholder="10"
                     />
                   </div>
                 </div>
@@ -671,17 +685,31 @@ function App() {
                     )}
                   </div>
                   <div>
-                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
-                      Hauteur antenne (m AGL)
-                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
+                        Hauteur antenne (m AGL)
+                      </Label>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="w-3 h-3 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[200px]">
+                          <p className="text-xs">Hauteur en mètre de l'antenne au dessus du sol</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <Input
                       data-testid="height-b-input"
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={heightB}
-                      onChange={(e) => setHeightB(Math.max(0, Math.min(1000, parseFloat(e.target.value) || 0)))}
-                      min={0}
-                      max={1000}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                        const num = parseFloat(val) || 0;
+                        setHeightB(Math.max(0, Math.min(1000, num)));
+                      }}
                       className="tactical-input mt-1"
+                      placeholder="10"
                     />
                   </div>
                 </div>
