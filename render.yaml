@@ -4,7 +4,7 @@
 services:
   # Backend - FastAPI
   - type: web
-    name: topowave-api
+    name: topowave-backend
     runtime: python
     region: frankfurt
     plan: free
@@ -30,7 +30,7 @@ services:
     rootDir: frontend
     envVars:
       - key: REACT_APP_BACKEND_URL
-        value: https://topowave-api.onrender.com
+        value: https://topowave-backend.onrender.com
     headers:
       - path: /*
         name: Cache-Control

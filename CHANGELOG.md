@@ -4,6 +4,32 @@ Toutes les modifications notables de TopoWave sont documentées ici.
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
+## [1.5.0] - 2026-03-20
+
+### Ajouté
+- **Auto-calcul URL** : Le profil est calculé automatiquement lors de l'ouverture d'un lien de partage
+- **Export CSV** : Bouton d'export dans le header pour télécharger les données du profil
+- Le fichier CSV contient les métadonnées du trajet et toutes les données d'élévation
+
+### Modifié
+- Renommage de l'onglet "Adresse" → "Ville" pour plus de clarté
+
+---
+
+## [1.4.0] - 2026-03-20
+
+### Ajouté
+- **Interface à onglets** : Trois modes de saisie pour chaque station (Locator, Ville, GPS)
+- **Autocomplétion Ville** : Recherche de ville/lieu avec suggestions via API Photon
+- **Saisie GPS** : Entrée directe des coordonnées lat/lon avec conversion en locator
+- Endpoint `/api/geocode` pour proxy de géocodage (évite CORS)
+
+### Modifié
+- API de géocodage : Migration de Nominatim vers Photon (meilleure performance, pas de rate limit)
+- Debounce 500ms sur la recherche pour optimiser les requêtes
+
+---
+
 ## [1.3.0] - 2026-03-19
 
 ### Ajouté

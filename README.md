@@ -19,17 +19,22 @@
 - **Distance & Azimut** : Calcul géodésique Haversine et Great Circle
 - **Modèle Terre 4/3** : Réfraction atmosphérique VHF+ (Reff = 8500 km)
 - **Ligne de Visée (LoS)** : Analyse d'obstruction avec indicateur CLEAR/OBSTRUCTED
-- **Zone de Fresnel** : Calcul pour les bandes 2m, 70cm, 21cm, 13cm, 3cm
+- **Zone de Fresnel** : Calcul pour les bandes 6m, 4m, 2m, 1.25m, 70cm, 21cm, 13cm, 3cm
 
 ### Interface
 - **Thème tactique sombre** : Interface style "Night Ops" optimisée pour les radioamateurs
+- **Saisie multi-mode** : Onglets Locator / Ville / GPS pour chaque station
+- **Autocomplétion Ville** : Recherche avec suggestions (API Photon/OpenStreetMap)
 - **Graphique interactif** : Visualisation Plotly avec terrain, LoS et zone de Fresnel
-- **Carte interactive** : Sélection des positions avec recherche d'adresse (OpenStreetMap)
+- **Carte interactive** : Sélection des positions avec recherche d'adresse
+- **Carte du trajet** : Visualisation du trajet et du point d'obstruction
 - **Responsive** : Adapté mobile et desktop
-- **Partage** : Génération de liens partageables avec paramètres pré-remplis
+- **Partage** : Génération de liens partageables avec calcul automatique
+- **Export CSV** : Téléchargement des données du profil
 
 ### Données
 - **API Élévation** : Open-TopoData (SRTM 30m) - gratuite et sans clé API
+- **API Géocodage** : Photon (Komoot/OpenStreetMap) - gratuite et rapide
 - **Stateless** : Aucune base de données, persistance localStorage uniquement
 
 ## Technologies
@@ -54,7 +59,7 @@
 
 ### APIs Externes
 - **Open-TopoData** : Données d'élévation SRTM 30m (gratuit, ~100 req/jour)
-- **OpenStreetMap Nominatim** : Géocodage pour recherche d'adresse
+- **Photon** : Géocodage avec autocomplétion (Komoot/OpenStreetMap)
 
 ## Déploiement
 
@@ -67,7 +72,7 @@
 3. Cliquez sur "New" → "Blueprint"
 4. Sélectionnez votre repository
 5. Render détectera automatiquement le `render.yaml` et créera :
-   - `topowave-api` : Backend FastAPI (Web Service gratuit)
+   - `topowave-backend` : Backend FastAPI (Web Service gratuit)
    - `topowave` : Frontend React (Static Site gratuit)
 
 **Note** : Le backend gratuit s'endort après 15min d'inactivité (~30s au réveil).
@@ -119,10 +124,27 @@ CORS_ORIGINS=http://localhost:3000
 2. Recherchez une adresse ou cliquez sur la carte
 3. Le locator 10 caractères est automatiquement calculé
 
+### Saisie par ville
+1. Sélectionnez l'onglet "Ville" pour une station
+2. Tapez le nom de la ville (ex: "Paris", "Berlin")
+3. Sélectionnez une suggestion dans la liste
+4. Le locator est automatiquement calculé
+
+### Saisie par coordonnées GPS
+1. Sélectionnez l'onglet "GPS" pour une station
+2. Entrez la latitude et la longitude
+3. Cliquez sur "Convertir" pour générer le locator
+
 ### Partage
 1. Configurez votre profil
 2. Cliquez sur l'icône de partage 🔗 dans le header
 3. Copiez l'URL et partagez-la
+4. Le destinataire verra le profil calculé automatiquement
+
+### Export des données
+1. Calculez un profil
+2. Cliquez sur l'icône de téléchargement ⬇️ dans le header
+3. Un fichier CSV est généré avec toutes les données du profil
 
 ## API Reference
 
@@ -131,6 +153,27 @@ Retourne les informations de l'API.
 
 ### GET /api/bands
 Retourne la liste des bandes amateur supportées.
+
+### GET /api/geocode
+Recherche d'adresse avec autocomplétion.
+
+**Query Parameters:**
+- `q` : Requête de recherche (min 3 caractères)
+- `limit` : Nombre max de résultats (1-10, défaut 5)
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "lat": 48.8582599,
+      "lon": 2.2945006,
+      "display_name": "Tour Eiffel, Paris, Île-de-France, France",
+      "type": "attraction"
+    }
+  ]
+}
+```
 
 ### POST /api/calculate-path
 Calcule le profil de terrain entre deux stations.
@@ -202,11 +245,15 @@ Ce projet a été développé avec [Emergent](https://emergent.sh), une platefor
 
 ## Roadmap
 
-- [ ] Export PDF/CSV des profils
+- [x] Export CSV des profils
+- [x] Saisie multi-mode (Locator/Ville/GPS)
+- [x] Auto-calcul au chargement d'URL de partage
+- [ ] Export PDF des profils avec graphique
 - [ ] Mode hors-ligne avec cache élévation
 - [ ] Calcul multi-hop (relais)
 - [ ] Intégration données météo pour réfraction avancée
 - [ ] PWA pour installation mobile
+- [ ] Historique des calculs
 
 ## Licence
 
