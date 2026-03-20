@@ -78,18 +78,17 @@ const formatLocator = (value) => {
   return value.toUpperCase().slice(0, 10);
 };
 
-// Geocode address using OpenStreetMap Nominatim
+// Geocode address using backend proxy (avoids CORS issues)
 const geocodeAddress = async (address) => {
   try {
     const response = await axios.get(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
-      { headers: { 'User-Agent': 'TopoWave/1.0' } }
+      `${API}/geocode?q=${encodeURIComponent(address)}`
     );
-    if (response.data && response.data.length > 0) {
+    if (response.data && response.data.lat !== null) {
       return {
-        lat: parseFloat(response.data[0].lat),
-        lon: parseFloat(response.data[0].lon),
-        display_name: response.data[0].display_name
+        lat: response.data.lat,
+        lon: response.data.lon,
+        display_name: response.data.display_name
       };
     }
     return null;

@@ -298,6 +298,36 @@ async def get_bands():
     }
 
 
+@api_router.get("/geocode")
+async def geocode_address(q: str):
+    """Proxy endpoint for OpenStreetMap Nominatim geocoding to avoid CORS issues"""
+    if not q or len(q.strip()) < 2:
+        raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
+    
+    url = f"https://nominatim.openstreetmap.org/search?format=json&q={q}&limit=1"
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            response = await client.get(
+                url,
+                headers={"User-Agent": "TopoWave/1.0"}
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if data and len(data) > 0:
+                return {
+                    "lat": float(data[0]["lat"]),
+                    "lon": float(data[0]["lon"]),
+                    "display_name": data[0].get("display_name", "")
+                }
+            return {"lat": None, "lon": None, "display_name": None}
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Geocoding service timeout")
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"Geocoding service error: {str(e)}")
+
+
 @api_router.post("/calculate-path", response_model=PathResponse)
 async def calculate_path(request: PathRequest):
     """Calculate terrain profile and line of sight analysis between two stations"""
