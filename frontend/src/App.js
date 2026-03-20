@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -63,9 +64,39 @@ const validateLocator = (locator) => {
   return pattern.test(locator);
 };
 
+// Validate GPS coordinates
+const validateCoordinates = (lat, lon) => {
+  const latNum = parseFloat(lat);
+  const lonNum = parseFloat(lon);
+  return !isNaN(latNum) && !isNaN(lonNum) && 
+         latNum >= -90 && latNum <= 90 && 
+         lonNum >= -180 && lonNum <= 180;
+};
+
 // Format locator input
 const formatLocator = (value) => {
   return value.toUpperCase().slice(0, 10);
+};
+
+// Geocode address using OpenStreetMap Nominatim
+const geocodeAddress = async (address) => {
+  try {
+    const response = await axios.get(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+      { headers: { 'User-Agent': 'TopoWave/1.0' } }
+    );
+    if (response.data && response.data.length > 0) {
+      return {
+        lat: parseFloat(response.data[0].lat),
+        lon: parseFloat(response.data[0].lon),
+        display_name: response.data[0].display_name
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return null;
+  }
 };
 
 // Convert lat/lon to Maidenhead locator (10 characters for precision)
@@ -188,7 +219,7 @@ const MapDialog = ({ open, onClose, onSelect, title, initialPosition }) => {
   
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl w-[95vw] h-[80vh] flex flex-col bg-card border-border p-0">
+      <DialogContent className="max-w-3xl w-[95vw] h-[80vh] flex flex-col bg-card border-border p-0 z-[9999]">
         <DialogHeader className="p-4 border-b border-border">
           <DialogTitle className="font-heading text-primary tracking-widest flex items-center gap-2">
             <MapPin className="w-5 h-5" />
@@ -428,6 +459,58 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [serverWaking, setServerWaking] = useState(false);
+
+  // Input mode states for each station
+  const [inputModeA, setInputModeA] = useState('locator');
+  const [inputModeB, setInputModeB] = useState('locator');
+  
+  // Address input states
+  const [addressA, setAddressA] = useState('');
+  const [addressB, setAddressB] = useState('');
+  const [addressLoadingA, setAddressLoadingA] = useState(false);
+  const [addressLoadingB, setAddressLoadingB] = useState(false);
+  
+  // GPS input states
+  const [latA, setLatA] = useState('');
+  const [lonA, setLonA] = useState('');
+  const [latB, setLatB] = useState('');
+  const [lonB, setLonB] = useState('');
+
+  // Handle address search
+  const handleAddressSearch = async (station) => {
+    const address = station === 'A' ? addressA : addressB;
+    const setLoading = station === 'A' ? setAddressLoadingA : setAddressLoadingB;
+    const setLocator = station === 'A' ? setLocatorA : setLocatorB;
+    
+    if (!address.trim()) return;
+    
+    setLoading(true);
+    const result = await geocodeAddress(address);
+    setLoading(false);
+    
+    if (result) {
+      const locator = latLonToMaidenhead(result.lat, result.lon, 10);
+      setLocator(locator);
+      toast.success("Adresse trouvée", { description: `${locator} - ${result.display_name.slice(0, 50)}...` });
+    } else {
+      toast.error("Adresse non trouvée", { description: "Essayez une adresse plus précise" });
+    }
+  };
+
+  // Handle GPS coordinates input
+  const handleGpsInput = (station) => {
+    const lat = station === 'A' ? latA : latB;
+    const lon = station === 'A' ? lonA : lonB;
+    const setLocator = station === 'A' ? setLocatorA : setLocatorB;
+    
+    if (validateCoordinates(lat, lon)) {
+      const locator = latLonToMaidenhead(parseFloat(lat), parseFloat(lon), 10);
+      setLocator(locator);
+      toast.success("Coordonnées converties", { description: `Locator: ${locator}` });
+    } else {
+      toast.error("Coordonnées invalides", { description: "Latitude: -90 à 90, Longitude: -180 à 180" });
+    }
+  };
 
   // Handle click on obstruction point in chart
   const handlePlotClick = (data) => {
@@ -725,31 +808,96 @@ function App() {
                   STATION A
                 </h2>
                 <div className="space-y-2 md:space-y-3">
-                  <div>
-                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">Locator (6-10 car.)</Label>
-                    <div className="flex gap-2 mt-1">
-                      <Input
-                        data-testid="locator-a-input"
-                        value={locatorA}
-                        onChange={(e) => setLocatorA(formatLocator(e.target.value))}
-                        placeholder="JN18DQ96"
-                        className="tactical-input flex-1"
-                        maxLength={10}
-                      />
+                  <Tabs value={inputModeA} onValueChange={setInputModeA} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3 bg-background/50 h-8" data-testid="station-a-tabs">
+                      <TabsTrigger value="locator" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-locator-a">Locator</TabsTrigger>
+                      <TabsTrigger value="address" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-address-a">Adresse</TabsTrigger>
+                      <TabsTrigger value="gps" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-gps-a">GPS</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="locator" className="mt-2">
+                      <div className="flex gap-2">
+                        <Input
+                          data-testid="locator-a-input"
+                          value={locatorA}
+                          onChange={(e) => setLocatorA(formatLocator(e.target.value))}
+                          placeholder="JN18DQ96"
+                          className="tactical-input flex-1"
+                          maxLength={10}
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => openMapDialog('A')}
+                          className="rounded-none border-border hover:border-primary hover:text-primary shrink-0"
+                          data-testid="map-picker-a-btn"
+                        >
+                          <MapPin className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      {locatorA && !validateLocator(locatorA) && (
+                        <p className="text-[10px] text-destructive mt-1">Format: AA00aa (6-10 car.)</p>
+                      )}
+                      {locatorA && validateLocator(locatorA) && (
+                        <p className="text-[10px] text-primary mt-1">✓ {locatorA}</p>
+                      )}
+                    </TabsContent>
+                    <TabsContent value="address" className="mt-2">
+                      <div className="flex gap-2">
+                        <Input
+                          value={addressA}
+                          onChange={(e) => setAddressA(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddressSearch('A')}
+                          placeholder="Tour Eiffel, Paris"
+                          className="tactical-input flex-1"
+                          data-testid="address-a-input"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleAddressSearch('A')}
+                          disabled={addressLoadingA}
+                          className="rounded-none border-border hover:border-primary hover:text-primary shrink-0"
+                          data-testid="address-search-a-btn"
+                        >
+                          {addressLoadingA ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Search className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      {locatorA && validateLocator(locatorA) && (
+                        <p className="text-[10px] text-primary mt-1">→ {locatorA}</p>
+                      )}
+                    </TabsContent>
+                    <TabsContent value="gps" className="mt-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          value={latA}
+                          onChange={(e) => setLatA(e.target.value)}
+                          placeholder="Lat: 48.8566"
+                          className="tactical-input text-xs"
+                          data-testid="lat-a-input"
+                        />
+                        <Input
+                          value={lonA}
+                          onChange={(e) => setLonA(e.target.value)}
+                          placeholder="Lon: 2.3522"
+                          className="tactical-input text-xs"
+                          data-testid="lon-a-input"
+                        />
+                      </div>
                       <Button
                         variant="outline"
-                        size="icon"
-                        onClick={() => openMapDialog('A')}
-                        className="rounded-none border-border hover:border-primary hover:text-primary shrink-0"
-                        data-testid="map-picker-a-btn"
+                        size="sm"
+                        onClick={() => handleGpsInput('A')}
+                        disabled={!validateCoordinates(latA, lonA)}
+                        className="w-full mt-2 rounded-none border-border hover:border-primary hover:text-primary text-xs h-8"
+                        data-testid="gps-convert-a-btn"
                       >
-                        <MapPin className="w-4 h-4" />
+                        Convertir en locator
                       </Button>
-                    </div>
-                    {locatorA && !validateLocator(locatorA) && (
-                      <p className="text-[10px] md:text-xs text-destructive mt-1">Format: AA00aa (6-10 caractères)</p>
-                    )}
-                  </div>
+                      {locatorA && validateLocator(locatorA) && (
+                        <p className="text-[10px] text-primary mt-1">→ {locatorA}</p>
+                      )}
+                    </TabsContent>
+                  </Tabs>
                   <div>
                     <div className="flex items-center gap-2">
                       <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
@@ -788,31 +936,96 @@ function App() {
                   STATION B
                 </h2>
                 <div className="space-y-2 md:space-y-3">
-                  <div>
-                    <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">Locator (6-10 car.)</Label>
-                    <div className="flex gap-2 mt-1">
-                      <Input
-                        data-testid="locator-b-input"
-                        value={locatorB}
-                        onChange={(e) => setLocatorB(formatLocator(e.target.value))}
-                        placeholder="IN96GC45"
-                        className="tactical-input flex-1"
-                        maxLength={10}
-                      />
+                  <Tabs value={inputModeB} onValueChange={setInputModeB} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3 bg-background/50 h-8" data-testid="station-b-tabs">
+                      <TabsTrigger value="locator" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-locator-b">Locator</TabsTrigger>
+                      <TabsTrigger value="address" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-address-b">Adresse</TabsTrigger>
+                      <TabsTrigger value="gps" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-gps-b">GPS</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="locator" className="mt-2">
+                      <div className="flex gap-2">
+                        <Input
+                          data-testid="locator-b-input"
+                          value={locatorB}
+                          onChange={(e) => setLocatorB(formatLocator(e.target.value))}
+                          placeholder="IN96GC45"
+                          className="tactical-input flex-1"
+                          maxLength={10}
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => openMapDialog('B')}
+                          className="rounded-none border-border hover:border-primary hover:text-primary shrink-0"
+                          data-testid="map-picker-b-btn"
+                        >
+                          <MapPin className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      {locatorB && !validateLocator(locatorB) && (
+                        <p className="text-[10px] text-destructive mt-1">Format: AA00aa (6-10 car.)</p>
+                      )}
+                      {locatorB && validateLocator(locatorB) && (
+                        <p className="text-[10px] text-primary mt-1">✓ {locatorB}</p>
+                      )}
+                    </TabsContent>
+                    <TabsContent value="address" className="mt-2">
+                      <div className="flex gap-2">
+                        <Input
+                          value={addressB}
+                          onChange={(e) => setAddressB(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddressSearch('B')}
+                          placeholder="Brandenburger Tor, Berlin"
+                          className="tactical-input flex-1"
+                          data-testid="address-b-input"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleAddressSearch('B')}
+                          disabled={addressLoadingB}
+                          className="rounded-none border-border hover:border-primary hover:text-primary shrink-0"
+                          data-testid="address-search-b-btn"
+                        >
+                          {addressLoadingB ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Search className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      {locatorB && validateLocator(locatorB) && (
+                        <p className="text-[10px] text-primary mt-1">→ {locatorB}</p>
+                      )}
+                    </TabsContent>
+                    <TabsContent value="gps" className="mt-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          value={latB}
+                          onChange={(e) => setLatB(e.target.value)}
+                          placeholder="Lat: 52.5200"
+                          className="tactical-input text-xs"
+                          data-testid="lat-b-input"
+                        />
+                        <Input
+                          value={lonB}
+                          onChange={(e) => setLonB(e.target.value)}
+                          placeholder="Lon: 13.4050"
+                          className="tactical-input text-xs"
+                          data-testid="lon-b-input"
+                        />
+                      </div>
                       <Button
                         variant="outline"
-                        size="icon"
-                        onClick={() => openMapDialog('B')}
-                        className="rounded-none border-border hover:border-primary hover:text-primary shrink-0"
-                        data-testid="map-picker-b-btn"
+                        size="sm"
+                        onClick={() => handleGpsInput('B')}
+                        disabled={!validateCoordinates(latB, lonB)}
+                        className="w-full mt-2 rounded-none border-border hover:border-primary hover:text-primary text-xs h-8"
+                        data-testid="gps-convert-b-btn"
                       >
-                        <MapPin className="w-4 h-4" />
+                        Convertir en locator
                       </Button>
-                    </div>
-                    {locatorB && !validateLocator(locatorB) && (
-                      <p className="text-[10px] md:text-xs text-destructive mt-1">Format: AA00aa (6-10 caractères)</p>
-                    )}
-                  </div>
+                      {locatorB && validateLocator(locatorB) && (
+                        <p className="text-[10px] text-primary mt-1">→ {locatorB}</p>
+                      )}
+                    </TabsContent>
+                  </Tabs>
                   <div>
                     <div className="flex items-center gap-2">
                       <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
