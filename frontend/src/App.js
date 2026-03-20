@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import "@/App.css";
 import axios from "axios";
 import Plotly from "plotly.js-basic-dist-min";
 import createPlotlyComponent from "react-plotly.js/factory";
 import { Toaster, toast } from "sonner";
-import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search, Coffee } from "lucide-react";
+import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search, Coffee, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -455,6 +455,12 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [serverWaking, setServerWaking] = useState(false);
+  // Auto-calculate if URL has parameters (shared link)
+  // Note: This effect is placed after calculatePath definition
+  const [shouldAutoCalculate, setShouldAutoCalculateState] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.has('a') && urlParams.has('b');
+  });
 
   // Input mode states for each station
   const [inputModeA, setInputModeA] = useState('locator');
@@ -519,7 +525,7 @@ function App() {
     setLocator(locator);
     setAddress(suggestion.display_name.split(',')[0]); // Keep short name
     setShowSuggestions(false);
-    toast.success("Adresse sélectionnée", { 
+    toast.success("Ville sélectionnée", { 
       description: `${locator} - ${suggestion.display_name.slice(0, 60)}...` 
     });
   };
@@ -537,6 +543,51 @@ function App() {
     } else {
       toast.error("Coordonnées invalides", { description: "Latitude: -90 à 90, Longitude: -180 à 180" });
     }
+  };
+
+  // Export results to CSV
+  const exportToCSV = () => {
+    if (!result) return;
+    
+    // Build CSV content
+    const lines = [
+      '# TopoWave - Profil de terrain',
+      `# Station A: ${result.station_a.locator} (${result.station_a.latitude}, ${result.station_a.longitude})`,
+      `# Station B: ${result.station_b.locator} (${result.station_b.latitude}, ${result.station_b.longitude})`,
+      `# Distance: ${result.distance_km} km`,
+      `# Azimut A->B: ${result.azimuth_ab}°, B->A: ${result.azimuth_ba}°`,
+      `# Status: ${result.is_clear ? 'CLEAR' : 'OBSTRUCTED'}`,
+      result.band ? `# Bande: ${result.band}` : '',
+      '',
+      'Distance_km,Latitude,Longitude,Elevation_m,LoS_Height_m,Fresnel_Radius_m,Obstructed'
+    ].filter(Boolean);
+    
+    // Add data rows
+    result.elevation_profile.forEach(point => {
+      lines.push([
+        point.distance_km,
+        point.latitude,
+        point.longitude,
+        point.elevation,
+        point.los_height,
+        point.fresnel_radius || '',
+        point.is_obstructed ? 'OUI' : 'NON'
+      ].join(','));
+    });
+    
+    // Create and download file
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `topowave_${result.station_a.locator}_${result.station_b.locator}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast.success("Export CSV", { description: "Fichier téléchargé" });
   };
 
   // Handle click on obstruction point in chart
@@ -561,15 +612,6 @@ function App() {
     if (band && band !== 'none') params.set('band', band);
     return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
   }, [locatorA, locatorB, heightA, heightB, numPoints, band]);
-
-  // Auto-calculate if URL has parameters
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('a') && urlParams.has('b')) {
-      // Clear URL parameters after reading
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
 
   // Persist to localStorage
   useEffect(() => {
@@ -652,6 +694,25 @@ function App() {
       setLoading(false);
     }
   }, [locatorA, locatorB, heightA, heightB, numPoints, band]);
+
+  // Ref to store calculatePath for auto-calculate
+  const calculatePathRef = useRef(calculatePath);
+  calculatePathRef.current = calculatePath;
+
+  // Auto-calculate if URL has parameters (shared link)
+  useEffect(() => {
+    if (shouldAutoCalculate && validateLocator(locatorA) && validateLocator(locatorB)) {
+      // Clear URL parameters
+      window.history.replaceState({}, '', window.location.pathname);
+      setShouldAutoCalculateState(false);
+      
+      // Trigger calculation using ref to avoid dependency issues
+      const timer = setTimeout(() => {
+        calculatePathRef.current();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldAutoCalculate, locatorA, locatorB]);
 
   // Build Plotly data
   const getPlotData = () => {
@@ -820,6 +881,17 @@ function App() {
               >
                 <Share2 className="w-4 h-4" />
               </Button>
+              {result && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={exportToCSV}
+                  className="rounded-none text-muted-foreground hover:text-primary hover:bg-transparent"
+                  data-testid="export-csv-btn"
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
         </header>
@@ -838,7 +910,7 @@ function App() {
                   <Tabs value={inputModeA} onValueChange={setInputModeA} className="w-full">
                     <TabsList className="grid w-full grid-cols-3 bg-background/50 h-8" data-testid="station-a-tabs">
                       <TabsTrigger value="locator" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-locator-a">Locator</TabsTrigger>
-                      <TabsTrigger value="address" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-address-a">Adresse</TabsTrigger>
+                      <TabsTrigger value="address" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-address-a">Ville</TabsTrigger>
                       <TabsTrigger value="gps" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-gps-a">GPS</TabsTrigger>
                     </TabsList>
                     <TabsContent value="locator" className="mt-2">
@@ -979,7 +1051,7 @@ function App() {
                   <Tabs value={inputModeB} onValueChange={setInputModeB} className="w-full">
                     <TabsList className="grid w-full grid-cols-3 bg-background/50 h-8" data-testid="station-b-tabs">
                       <TabsTrigger value="locator" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-locator-b">Locator</TabsTrigger>
-                      <TabsTrigger value="address" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-address-b">Adresse</TabsTrigger>
+                      <TabsTrigger value="address" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-address-b">Ville</TabsTrigger>
                       <TabsTrigger value="gps" className="text-[10px] data-[state=active]:bg-primary data-[state=active]:text-black" data-testid="tab-gps-b">GPS</TabsTrigger>
                     </TabsList>
                     <TabsContent value="locator" className="mt-2">

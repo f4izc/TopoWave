@@ -52,12 +52,16 @@ Application web "Stateless" (sans base de données) nommée "TopoWave" (ancienne
 ### Version 1.3 - Interface à onglets (March 20, 2026)
 - Interface de saisie à onglets pour chaque station (A et B)
 - **Onglet Locator**: Saisie directe du locator Maidenhead + sélection sur carte
-- **Onglet Adresse**: Recherche avec autocomplétion via API Photon (Komoot/OpenStreetMap)
+- **Onglet Ville**: Recherche avec autocomplétion via API Photon (Komoot/OpenStreetMap)
 - **Onglet GPS**: Saisie directe des coordonnées Lat/Lon avec conversion automatique en locator
 - Ajout endpoint `/api/geocode` avec support autocomplete (5 résultats max)
-- Debounce de 500ms sur la recherche d'adresse pour éviter trop de requêtes
+- Debounce de 500ms sur la recherche de ville pour éviter trop de requêtes
 - Affichage des suggestions dans un dropdown avec nom et localisation
-- Correction du bug de z-index pour le dialogue de carte
+
+### Version 1.4 - Auto-calcul et Export (March 20, 2026)
+- **Auto-calcul** : Le profil est automatiquement calculé lors de l'ouverture d'une URL de partage
+- **Export CSV** : Bouton d'export dans le header pour télécharger les résultats en CSV
+- Le fichier CSV contient les métadonnées du trajet et toutes les données du profil d'élévation
 
 ## Tech Stack
 - Backend: Python/FastAPI
@@ -74,9 +78,9 @@ Application web "Stateless" (sans base de données) nommée "TopoWave" (ancienne
 - ✅ Corrections UI et responsive mobile
 - ✅ Interface à onglets (Locator, Adresse, GPS)
 
-### P1 - Next Tasks
-- Auto-calcul lors du chargement avec paramètres URL de partage
-- Export des résultats (CSV/PDF)
+### P1 - Completed
+- ✅ Auto-calcul lors du chargement avec paramètres URL de partage
+- ✅ Export des résultats en CSV
 
 ### P2 - Nice to Have
 - Calcul multi-hop (relais)
