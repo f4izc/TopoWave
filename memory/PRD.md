@@ -52,10 +52,11 @@ Application web "Stateless" (sans base de données) nommée "TopoWave" (ancienne
 ### Version 1.3 - Interface à onglets (March 20, 2026)
 - Interface de saisie à onglets pour chaque station (A et B)
 - **Onglet Locator**: Saisie directe du locator Maidenhead + sélection sur carte
-- **Onglet Adresse**: Recherche géocodage via proxy backend (Nominatim)
+- **Onglet Adresse**: Recherche avec autocomplétion via API Photon (Komoot/OpenStreetMap)
 - **Onglet GPS**: Saisie directe des coordonnées Lat/Lon avec conversion automatique en locator
-- Ajout endpoint `/api/geocode` pour éviter les problèmes CORS
-- Ajout des data-testid pour tous les éléments interactifs des onglets
+- Ajout endpoint `/api/geocode` avec support autocomplete (5 résultats max)
+- Debounce de 500ms sur la recherche d'adresse pour éviter trop de requêtes
+- Affichage des suggestions dans un dropdown avec nom et localisation
 - Correction du bug de z-index pour le dialogue de carte
 
 ## Tech Stack

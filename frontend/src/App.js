@@ -78,23 +78,20 @@ const formatLocator = (value) => {
   return value.toUpperCase().slice(0, 10);
 };
 
-// Geocode address using backend proxy (avoids CORS issues)
-const geocodeAddress = async (address) => {
+// Geocode address using backend proxy with autocomplete support
+const searchAddresses = async (query) => {
+  if (!query || query.trim().length < 3) return [];
   try {
     const response = await axios.get(
-      `${API}/geocode?q=${encodeURIComponent(address)}`
+      `${API}/geocode?q=${encodeURIComponent(query)}&limit=5`
     );
-    if (response.data && response.data.lat !== null) {
-      return {
-        lat: response.data.lat,
-        lon: response.data.lon,
-        display_name: response.data.display_name
-      };
+    if (response.data && response.data.results) {
+      return response.data.results;
     }
-    return null;
+    return [];
   } catch (error) {
     console.error('Geocoding error:', error);
-    return null;
+    return [];
   }
 };
 
@@ -468,6 +465,10 @@ function App() {
   const [addressB, setAddressB] = useState('');
   const [addressLoadingA, setAddressLoadingA] = useState(false);
   const [addressLoadingB, setAddressLoadingB] = useState(false);
+  const [addressSuggestionsA, setAddressSuggestionsA] = useState([]);
+  const [addressSuggestionsB, setAddressSuggestionsB] = useState([]);
+  const [showSuggestionsA, setShowSuggestionsA] = useState(false);
+  const [showSuggestionsB, setShowSuggestionsB] = useState(false);
   
   // GPS input states
   const [latA, setLatA] = useState('');
@@ -475,25 +476,52 @@ function App() {
   const [latB, setLatB] = useState('');
   const [lonB, setLonB] = useState('');
 
-  // Handle address search
-  const handleAddressSearch = async (station) => {
-    const address = station === 'A' ? addressA : addressB;
-    const setLoading = station === 'A' ? setAddressLoadingA : setAddressLoadingB;
+  // Debounced address search
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (addressA.trim().length >= 3) {
+        setAddressLoadingA(true);
+        const results = await searchAddresses(addressA);
+        setAddressSuggestionsA(results);
+        setShowSuggestionsA(results.length > 0);
+        setAddressLoadingA(false);
+      } else {
+        setAddressSuggestionsA([]);
+        setShowSuggestionsA(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [addressA]);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (addressB.trim().length >= 3) {
+        setAddressLoadingB(true);
+        const results = await searchAddresses(addressB);
+        setAddressSuggestionsB(results);
+        setShowSuggestionsB(results.length > 0);
+        setAddressLoadingB(false);
+      } else {
+        setAddressSuggestionsB([]);
+        setShowSuggestionsB(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [addressB]);
+
+  // Handle address selection from suggestions
+  const handleAddressSelect = (station, suggestion) => {
     const setLocator = station === 'A' ? setLocatorA : setLocatorB;
+    const setAddress = station === 'A' ? setAddressA : setAddressB;
+    const setShowSuggestions = station === 'A' ? setShowSuggestionsA : setShowSuggestionsB;
     
-    if (!address.trim()) return;
-    
-    setLoading(true);
-    const result = await geocodeAddress(address);
-    setLoading(false);
-    
-    if (result) {
-      const locator = latLonToMaidenhead(result.lat, result.lon, 10);
-      setLocator(locator);
-      toast.success("Adresse trouvée", { description: `${locator} - ${result.display_name.slice(0, 50)}...` });
-    } else {
-      toast.error("Adresse non trouvée", { description: "Essayez une adresse plus précise" });
-    }
+    const locator = latLonToMaidenhead(suggestion.lat, suggestion.lon, 10);
+    setLocator(locator);
+    setAddress(suggestion.display_name.split(',')[0]); // Keep short name
+    setShowSuggestions(false);
+    toast.success("Adresse sélectionnée", { 
+      description: `${locator} - ${suggestion.display_name.slice(0, 60)}...` 
+    });
   };
 
   // Handle GPS coordinates input
@@ -841,25 +869,38 @@ function App() {
                       )}
                     </TabsContent>
                     <TabsContent value="address" className="mt-2">
-                      <div className="flex gap-2">
-                        <Input
-                          value={addressA}
-                          onChange={(e) => setAddressA(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAddressSearch('A')}
-                          placeholder="Tour Eiffel, Paris"
-                          className="tactical-input flex-1"
-                          data-testid="address-a-input"
-                        />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleAddressSearch('A')}
-                          disabled={addressLoadingA}
-                          className="rounded-none border-border hover:border-primary hover:text-primary shrink-0"
-                          data-testid="address-search-a-btn"
-                        >
-                          {addressLoadingA ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Search className="w-4 h-4" />}
-                        </Button>
+                      <div className="relative">
+                        <div className="flex gap-2">
+                          <Input
+                            value={addressA}
+                            onChange={(e) => setAddressA(e.target.value)}
+                            onFocus={() => addressSuggestionsA.length > 0 && setShowSuggestionsA(true)}
+                            placeholder="Tour Eiffel, Paris..."
+                            className="tactical-input flex-1"
+                            data-testid="address-a-input"
+                          />
+                          {addressLoadingA && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                        {showSuggestionsA && addressSuggestionsA.length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-card border border-border max-h-48 overflow-y-auto">
+                            {addressSuggestionsA.map((suggestion, index) => (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={() => handleAddressSelect('A', suggestion)}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-primary/20 border-b border-border/50 last:border-b-0 transition-colors"
+                                data-testid={`address-suggestion-a-${index}`}
+                              >
+                                <div className="text-foreground truncate">{suggestion.display_name.split(',')[0]}</div>
+                                <div className="text-muted-foreground text-[10px] truncate">{suggestion.display_name.split(',').slice(1, 3).join(',')}</div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       {locatorA && validateLocator(locatorA) && (
                         <p className="text-[10px] text-primary mt-1">→ {locatorA}</p>
@@ -969,25 +1010,38 @@ function App() {
                       )}
                     </TabsContent>
                     <TabsContent value="address" className="mt-2">
-                      <div className="flex gap-2">
-                        <Input
-                          value={addressB}
-                          onChange={(e) => setAddressB(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAddressSearch('B')}
-                          placeholder="Brandenburger Tor, Berlin"
-                          className="tactical-input flex-1"
-                          data-testid="address-b-input"
-                        />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleAddressSearch('B')}
-                          disabled={addressLoadingB}
-                          className="rounded-none border-border hover:border-primary hover:text-primary shrink-0"
-                          data-testid="address-search-b-btn"
-                        >
-                          {addressLoadingB ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Search className="w-4 h-4" />}
-                        </Button>
+                      <div className="relative">
+                        <div className="flex gap-2">
+                          <Input
+                            value={addressB}
+                            onChange={(e) => setAddressB(e.target.value)}
+                            onFocus={() => addressSuggestionsB.length > 0 && setShowSuggestionsB(true)}
+                            placeholder="Berlin, Allemagne..."
+                            className="tactical-input flex-1"
+                            data-testid="address-b-input"
+                          />
+                          {addressLoadingB && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                        {showSuggestionsB && addressSuggestionsB.length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-card border border-border max-h-48 overflow-y-auto">
+                            {addressSuggestionsB.map((suggestion, index) => (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={() => handleAddressSelect('B', suggestion)}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-primary/20 border-b border-border/50 last:border-b-0 transition-colors"
+                                data-testid={`address-suggestion-b-${index}`}
+                              >
+                                <div className="text-foreground truncate">{suggestion.display_name.split(',')[0]}</div>
+                                <div className="text-muted-foreground text-[10px] truncate">{suggestion.display_name.split(',').slice(1, 3).join(',')}</div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       {locatorB && validateLocator(locatorB) && (
                         <p className="text-[10px] text-primary mt-1">→ {locatorB}</p>

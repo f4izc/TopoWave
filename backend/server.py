@@ -299,29 +299,57 @@ async def get_bands():
 
 
 @api_router.get("/geocode")
-async def geocode_address(q: str):
-    """Proxy endpoint for OpenStreetMap Nominatim geocoding to avoid CORS issues"""
-    if not q or len(q.strip()) < 2:
-        raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
+async def geocode_address(q: str, limit: int = 5):
+    """Proxy endpoint for address geocoding with autocomplete support using Photon API (OpenStreetMap based)"""
+    if not q or len(q.strip()) < 3:
+        raise HTTPException(status_code=400, detail="Query must be at least 3 characters")
     
-    url = f"https://nominatim.openstreetmap.org/search?format=json&q={q}&limit=1"
+    # Limit results between 1 and 10
+    limit = max(1, min(10, limit))
     
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    # Use Photon API (by Komoot) - it's designed for autocomplete and has no strict rate limiting
+    url = f"https://photon.komoot.io/api/?q={q}&limit={limit}&lang=fr"
+    
+    async with httpx.AsyncClient(timeout=15.0) as client:
         try:
             response = await client.get(
                 url,
-                headers={"User-Agent": "TopoWave/1.0"}
+                headers={
+                    "User-Agent": "TopoWave/1.0 (Radio Amateur Path Profiler)"
+                }
             )
             response.raise_for_status()
             data = response.json()
             
-            if data and len(data) > 0:
-                return {
-                    "lat": float(data[0]["lat"]),
-                    "lon": float(data[0]["lon"]),
-                    "display_name": data[0].get("display_name", "")
-                }
-            return {"lat": None, "lon": None, "display_name": None}
+            results = []
+            for feature in data.get("features", []):
+                props = feature.get("properties", {})
+                coords = feature.get("geometry", {}).get("coordinates", [0, 0])
+                
+                # Build display name from properties
+                name_parts = []
+                if props.get("name"):
+                    name_parts.append(props["name"])
+                if props.get("city"):
+                    name_parts.append(props["city"])
+                elif props.get("county"):
+                    name_parts.append(props["county"])
+                if props.get("state"):
+                    name_parts.append(props["state"])
+                if props.get("country"):
+                    name_parts.append(props["country"])
+                
+                display_name = ", ".join(name_parts) if name_parts else props.get("name", "Unknown")
+                
+                results.append({
+                    "lat": coords[1],  # Photon returns [lon, lat]
+                    "lon": coords[0],
+                    "display_name": display_name,
+                    "type": props.get("osm_value", props.get("type", "")),
+                    "importance": 1.0
+                })
+            
+            return {"results": results}
         except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="Geocoding service timeout")
         except httpx.HTTPError as e:
