@@ -4,7 +4,7 @@ import axios from "axios";
 import Plotly from "plotly.js-basic-dist-min";
 import createPlotlyComponent from "react-plotly.js/factory";
 import { Toaster, toast } from "sonner";
-import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search, Coffee, Download } from "lucide-react";
+import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search, Coffee, Download, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,7 +49,7 @@ const BANDS = [
   { id: "2m", name: "2m (144 MHz)", frequency: 144 },
   { id: "1.25m", name: "1.25m (222 MHz)", frequency: 222 },
   { id: "70cm", name: "70cm (432 MHz)", frequency: 432 },
-  { id: "21cm", name: "21cm (1296 MHz)", frequency: 1296 },
+  { id: "23cm", name: "23cm (1296 MHz)", frequency: 1296 },
   { id: "13cm", name: "13cm (2320 MHz)", frequency: 2320 },
   { id: "3cm", name: "3cm (10368 MHz)", frequency: 10368 },
 ];
@@ -481,7 +481,9 @@ function App() {
   const [lonA, setLonA] = useState('');
   const [latB, setLatB] = useState('');
   const [lonB, setLonB] = useState('');
-
+  
+  // Methodology modal
+  const [methodologyOpen, setMethodologyOpen] = useState(false);
   // Debounced address search
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -514,6 +516,30 @@ function App() {
     }, 500);
     return () => clearTimeout(timer);
   }, [addressB]);
+
+  // Handle focus on address input - trigger search if text is present
+  const handleAddressFocus = async (station) => {
+    const address = station === 'A' ? addressA : addressB;
+    const suggestions = station === 'A' ? addressSuggestionsA : addressSuggestionsB;
+    const setShowSuggestions = station === 'A' ? setShowSuggestionsA : setShowSuggestionsB;
+    const setLoading = station === 'A' ? setAddressLoadingA : setAddressLoadingB;
+    const setSuggestions = station === 'A' ? setAddressSuggestionsA : setAddressSuggestionsB;
+    
+    // If we already have suggestions, just show them
+    if (suggestions.length > 0) {
+      setShowSuggestions(true);
+      return;
+    }
+    
+    // If we have text but no suggestions, trigger a search
+    if (address.trim().length >= 3) {
+      setLoading(true);
+      const results = await searchAddresses(address);
+      setSuggestions(results);
+      setShowSuggestions(results.length > 0);
+      setLoading(false);
+    }
+  };
 
   // Handle address selection from suggestions
   const handleAddressSelect = (station, suggestion) => {
@@ -946,7 +972,7 @@ function App() {
                           <Input
                             value={addressA}
                             onChange={(e) => setAddressA(e.target.value)}
-                            onFocus={() => addressSuggestionsA.length > 0 && setShowSuggestionsA(true)}
+                            onFocus={() => handleAddressFocus('A')}
                             placeholder="Tour Eiffel, Paris..."
                             className="tactical-input flex-1"
                             data-testid="address-a-input"
@@ -1087,7 +1113,7 @@ function App() {
                           <Input
                             value={addressB}
                             onChange={(e) => setAddressB(e.target.value)}
-                            onFocus={() => addressSuggestionsB.length > 0 && setShowSuggestionsB(true)}
+                            onFocus={() => handleAddressFocus('B')}
                             placeholder="Berlin, Allemagne..."
                             className="tactical-input flex-1"
                             data-testid="address-b-input"
@@ -1400,8 +1426,124 @@ function App() {
                     {result.station_b.locator} ({result.station_b.latitude}°, {result.station_b.longitude}°)
                   </p>
                 )}
-                <p className="text-warning/70 italic pt-1">Application expérimentale générée avec l'IA</p>
+                <div className="flex items-center justify-between pt-1">
+                  <p className="text-warning/70 italic">Application expérimentale générée avec l'IA</p>
+                  <button
+                    onClick={() => setMethodologyOpen(true)}
+                    className="text-primary hover:text-primary/80 underline underline-offset-2 flex items-center gap-1"
+                    data-testid="methodology-link"
+                  >
+                    <BookOpen className="w-3 h-3" />
+                    En savoir plus
+                  </button>
+                </div>
               </div>
+
+              {/* Methodology Modal */}
+              <Dialog open={methodologyOpen} onOpenChange={setMethodologyOpen}>
+                <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-card border-border">
+                  <DialogHeader>
+                    <DialogTitle className="font-heading tracking-widest text-primary flex items-center gap-2">
+                      <BookOpen className="w-5 h-5" />
+                      MÉTHODOLOGIE DE CALCUL
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 text-sm text-muted-foreground">
+                    
+                    <section>
+                      <h3 className="text-primary font-semibold mb-2">1. Conversion Maidenhead → Coordonnées</h3>
+                      <p className="mb-2">Le système Maidenhead divise la Terre en carrés de taille décroissante :</p>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        <li><strong>Field (2 car.)</strong> : 20° lon × 10° lat (ex: JN)</li>
+                        <li><strong>Square (4 car.)</strong> : 2° lon × 1° lat (ex: JN18)</li>
+                        <li><strong>Subsquare (6 car.)</strong> : 5' lon × 2.5' lat (~8 km)</li>
+                        <li><strong>Extended (8 car.)</strong> : 30" lon × 15" lat (~500 m)</li>
+                        <li><strong>Super Extended (10 car.)</strong> : 1.25" lon × 0.625" lat (~3 m)</li>
+                      </ul>
+                      <p className="mt-2 text-xs">Les coordonnées retournées correspondent au <em>centre</em> du carreau.</p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-primary font-semibold mb-2">2. Calcul de Distance (Haversine)</h3>
+                      <p className="mb-2">La formule de Haversine calcule la distance orthodromique sur une sphère :</p>
+                      <div className="bg-background/50 p-3 rounded font-mono text-xs">
+                        a = sin²(Δφ/2) + cos(φ1) × cos(φ2) × sin²(Δλ/2)<br/>
+                        c = 2 × atan2(√a, √(1−a))<br/>
+                        d = R × c
+                      </div>
+                      <p className="mt-2 text-xs">Où R = 6371 km (rayon terrestre moyen), φ = latitude, λ = longitude.</p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-primary font-semibold mb-2">3. Calcul d'Azimut (Great Circle)</h3>
+                      <p className="mb-2">L'azimut initial (bearing) est calculé par :</p>
+                      <div className="bg-background/50 p-3 rounded font-mono text-xs">
+                        θ = atan2(sin(Δλ) × cos(φ2), cos(φ1) × sin(φ2) − sin(φ1) × cos(φ2) × cos(Δλ))
+                      </div>
+                      <p className="mt-2 text-xs">Le résultat est normalisé entre 0° et 360°. L'azimut inverse (B→A) est calculé séparément.</p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-primary font-semibold mb-2">4. Modèle de Terre 4/3 (Réfraction)</h3>
+                      <p className="mb-2">La réfraction atmosphérique courbe les ondes radio. Pour les VHF/UHF/SHF, on utilise le modèle de "Terre équivalente" :</p>
+                      <div className="bg-background/50 p-3 rounded font-mono text-xs">
+                        R<sub>eff</sub> = K × R<sub>terre</sub> = 4/3 × 6371 km ≈ <strong>8495 km</strong>
+                      </div>
+                      <p className="mt-2 text-xs">Ce facteur K = 4/3 représente les conditions atmosphériques "standard" (gradient de réfractivité de -40 N-units/km).</p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-primary font-semibold mb-2">5. Ligne de Visée (LoS)</h3>
+                      <p className="mb-2">La hauteur de la ligne de visée à chaque point est calculée en tenant compte de la courbure terrestre :</p>
+                      <div className="bg-background/50 p-3 rounded font-mono text-xs">
+                        correction_courbure = d² / (2 × R<sub>eff</sub>)<br/>
+                        h<sub>LoS</sub> = h<sub>A</sub> + (h<sub>B</sub> − h<sub>A</sub>) × (d/D) − correction_courbure
+                      </div>
+                      <p className="mt-2 text-xs">Où d = distance au point, D = distance totale, h = hauteur (élévation + antenne).</p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-primary font-semibold mb-2">6. Zone de Fresnel</h3>
+                      <p className="mb-2">La première zone de Fresnel définit l'espace où se propage l'essentiel de l'énergie radio. Son rayon varie le long du trajet :</p>
+                      <div className="bg-background/50 p-3 rounded font-mono text-xs">
+                        r<sub>1</sub> = √(λ × d<sub>1</sub> × d<sub>2</sub> / D)
+                      </div>
+                      <p className="mt-2">Où :</p>
+                      <ul className="list-disc list-inside space-y-1 ml-2 text-xs">
+                        <li>λ = c/f (longueur d'onde en mètres)</li>
+                        <li>d<sub>1</sub> = distance au point depuis A</li>
+                        <li>d<sub>2</sub> = distance au point depuis B</li>
+                        <li>D = distance totale A-B</li>
+                      </ul>
+                      <p className="mt-2 text-xs">Le rayon est <strong>maximal au milieu du trajet</strong> et nul aux extrémités. Un dégagement de 60% de la 1ère zone de Fresnel est généralement suffisant pour éviter les pertes par diffraction.</p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-primary font-semibold mb-2">7. Détection d'Obstruction</h3>
+                      <p className="mb-2">Un trajet est considéré "OBSTRUCTED" si l'élévation du terrain dépasse la ligne de visée en au moins un point :</p>
+                      <div className="bg-background/50 p-3 rounded font-mono text-xs">
+                        SI élévation[i] &gt; h<sub>LoS</sub>[i] → OBSTRUCTED
+                      </div>
+                      <p className="mt-2 text-xs">Le point d'obstruction affiché est celui avec la plus grande marge positive (terrain − LoS).</p>
+                    </section>
+
+                    <section className="border-t border-border pt-4">
+                      <h3 className="text-primary font-semibold mb-2">Sources & Références</h3>
+                      <ul className="list-disc list-inside space-y-1 text-xs">
+                        <li><strong>Données d'élévation</strong> : <a href="https://www.opentopodata.org" target="_blank" rel="noopener noreferrer" className="text-primary underline">Open-TopoData</a> (SRTM 30m, NASA/USGS)</li>
+                        <li><strong>Géocodage</strong> : <a href="https://photon.komoot.io" target="_blank" rel="noopener noreferrer" className="text-primary underline">Photon</a> (Komoot, basé sur OpenStreetMap)</li>
+                        <li><strong>Cartes</strong> : <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" className="text-primary underline">OpenStreetMap</a> + tuiles CARTO Dark</li>
+                        <li><strong>Maidenhead</strong> : <a href="https://en.wikipedia.org/wiki/Maidenhead_Locator_System" target="_blank" rel="noopener noreferrer" className="text-primary underline">Wikipedia - Maidenhead Locator System</a></li>
+                        <li><strong>Haversine</strong> : <a href="https://en.wikipedia.org/wiki/Haversine_formula" target="_blank" rel="noopener noreferrer" className="text-primary underline">Wikipedia - Haversine formula</a></li>
+                        <li><strong>Fresnel</strong> : <a href="https://en.wikipedia.org/wiki/Fresnel_zone" target="_blank" rel="noopener noreferrer" className="text-primary underline">Wikipedia - Fresnel zone</a></li>
+                        <li><strong>Propagation VHF</strong> : ITU-R P.526 (Propagation by diffraction)</li>
+                        <li><strong>Facteur K</strong> : ITU-R P.453 (The radio refractive index)</li>
+                      </ul>
+                    </section>
+
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </main>

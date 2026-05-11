@@ -29,7 +29,7 @@ BAND_FREQUENCIES = {
     "2m": 144.0,
     "1.25m": 222.0,
     "70cm": 432.0,
-    "21cm": 1296.0,
+    "23cm": 1296.0,
     "13cm": 2320.0,
     "3cm": 10368.0
 }
@@ -291,7 +291,7 @@ async def get_bands():
             {"id": "2m", "name": "2m (VHF)", "frequency_mhz": 144.0},
             {"id": "1.25m", "name": "1.25m (VHF)", "frequency_mhz": 222.0},
             {"id": "70cm", "name": "70cm (UHF)", "frequency_mhz": 432.0},
-            {"id": "21cm", "name": "21cm (L-Band)", "frequency_mhz": 1296.0},
+            {"id": "23cm", "name": "23cm (L-Band)", "frequency_mhz": 1296.0},
             {"id": "13cm", "name": "13cm (S-Band)", "frequency_mhz": 2320.0},
             {"id": "3cm", "name": "3cm (X-Band)", "frequency_mhz": 10368.0},
         ]

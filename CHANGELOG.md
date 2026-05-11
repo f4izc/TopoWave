@@ -9,10 +9,15 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 ### Ajouté
 - **Auto-calcul URL** : Le profil est calculé automatiquement lors de l'ouverture d'un lien de partage
 - **Export CSV** : Bouton d'export dans le header pour télécharger les données du profil
+- **Modale "En savoir plus"** : Documentation complète de la méthodologie de calcul (Haversine, Fresnel, Terre 4/3, etc.)
 - Le fichier CSV contient les métadonnées du trajet et toutes les données d'élévation
 
 ### Modifié
 - Renommage de l'onglet "Adresse" → "Ville" pour plus de clarté
+- Correction de la bande radio : "21cm" → "23cm" (1296 MHz)
+
+### Corrigé
+- Autocomplétion ville : les suggestions apparaissent maintenant correctement même quand on switch d'onglet
 
 ---
 
