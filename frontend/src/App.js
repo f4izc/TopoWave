@@ -4,7 +4,7 @@ import axios from "axios";
 import Plotly from "plotly.js-basic-dist-min";
 import createPlotlyComponent from "react-plotly.js/factory";
 import { Toaster, toast } from "sonner";
-import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search, Coffee, Download, BookOpen, Sun, Moon, Layers } from "lucide-react";
+import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search, Coffee, Download, BookOpen, Sun, Moon, Layers, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -380,105 +380,211 @@ const FitBoundsComponent = ({ stationA, stationB, obstructionPoint, showObstruct
   return null;
 };
 
-const PathMap = ({ stationA, stationB, obstructionPoint, showObstruction, onObstructionClose, mapLayer, onMapLayerChange }) => {
-  const centerLat = (stationA.latitude + stationB.latitude) / 2;
-  const centerLon = (stationA.longitude + stationB.longitude) / 2;
-  const tileConfig = MAP_TILES[mapLayer] || MAP_TILES.cartoDark;
-  
-  // Custom icons
+// Map content component for PathMap (avoid defining inside render)
+const PathMapContent = ({ stationA, stationB, obstructionPoint, showObstruction, tileConfig, mapLayer, isFullscreen = false }) => {
   const stationIcon = new L.DivIcon({
     className: 'custom-marker',
-    html: '<div style="background:#00F0FF;width:12px;height:12px;border-radius:50%;border:2px solid #000;box-shadow:0 0 10px #00F0FF;"></div>',
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
+    html: `<div style="background:#00F0FF;width:${isFullscreen ? 18 : 12}px;height:${isFullscreen ? 18 : 12}px;border-radius:50%;border:${isFullscreen ? 3 : 2}px solid #000;box-shadow:0 0 ${isFullscreen ? 15 : 10}px #00F0FF;"></div>`,
+    iconSize: [isFullscreen ? 18 : 12, isFullscreen ? 18 : 12],
+    iconAnchor: [isFullscreen ? 9 : 6, isFullscreen ? 9 : 6],
   });
   
   const obstructionIcon = new L.DivIcon({
     className: 'custom-marker',
-    html: '<div style="background:#FF3333;width:16px;height:16px;border-radius:50%;border:2px solid #000;box-shadow:0 0 10px #FF3333;display:flex;align-items:center;justify-content:center;color:#000;font-weight:bold;font-size:10px;">X</div>',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    html: `<div style="background:#FF3333;width:${isFullscreen ? 24 : 16}px;height:${isFullscreen ? 24 : 16}px;border-radius:50%;border:${isFullscreen ? 3 : 2}px solid #000;box-shadow:0 0 ${isFullscreen ? 15 : 10}px #FF3333;display:flex;align-items:center;justify-content:center;color:#000;font-weight:bold;font-size:${isFullscreen ? 14 : 10}px;">X</div>`,
+    iconSize: [isFullscreen ? 24 : 16, isFullscreen ? 24 : 16],
+    iconAnchor: [isFullscreen ? 12 : 8, isFullscreen ? 12 : 8],
   });
+
+  return (
+    <>
+      <TileLayer
+        key={mapLayer}
+        attribution={tileConfig.attribution}
+        url={tileConfig.url}
+      />
+      <FitBoundsComponent 
+        stationA={stationA} 
+        stationB={stationB} 
+        obstructionPoint={obstructionPoint}
+        showObstruction={showObstruction}
+      />
+      <Marker position={[stationA.latitude, stationA.longitude]} icon={stationIcon} />
+      <Marker position={[stationB.latitude, stationB.longitude]} icon={stationIcon} />
+      <Polyline
+        positions={[
+          [stationA.latitude, stationA.longitude],
+          [stationB.latitude, stationB.longitude]
+        ]}
+        color="#00FF41"
+        weight={isFullscreen ? 3 : 2}
+        opacity={0.8}
+        dashArray="5, 10"
+      />
+      {obstructionPoint && (
+        <Marker position={[obstructionPoint.latitude, obstructionPoint.longitude]} icon={obstructionIcon} />
+      )}
+    </>
+  );
+};
+
+const PathMap = ({ stationA, stationB, obstructionPoint, showObstruction, onObstructionClose, mapLayer, onMapLayerChange }) => {
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const centerLat = (stationA.latitude + stationB.latitude) / 2;
+  const centerLon = (stationA.longitude + stationB.longitude) / 2;
+  const tileConfig = MAP_TILES[mapLayer] || MAP_TILES.cartoDark;
   
   return (
-    <div className="bg-card/50 border border-border" data-testid="path-map">
-      <div className="p-2 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-muted-foreground">CARTE DU TRAJET</span>
-          <Select value={mapLayer} onValueChange={onMapLayerChange}>
-            <SelectTrigger className="h-6 w-[130px] text-[10px] bg-background/50 border-border">
-              <Layers className="w-3 h-3 mr-1" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="z-[9999]">
-              {Object.entries(MAP_TILES).map(([key, config]) => (
-                <SelectItem key={key} value={key} className="text-xs">
-                  {config.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <>
+      <div className="bg-card/50 border border-border" data-testid="path-map">
+        <div className="p-2 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-muted-foreground">CARTE DU TRAJET</span>
+            <Select value={mapLayer} onValueChange={onMapLayerChange}>
+              <SelectTrigger className="h-6 w-[130px] text-[10px] bg-background/50 border-border">
+                <Layers className="w-3 h-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[9999]">
+                {Object.entries(MAP_TILES).map(([key, config]) => (
+                  <SelectItem key={key} value={key} className="text-xs">
+                    {config.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-1">
+            {showObstruction && obstructionPoint && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onObstructionClose}
+                className="h-6 px-2 text-xs text-warning"
+              >
+                <X className="w-3 h-3 mr-1" /> Fermer obstruction
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setFullscreenOpen(true)}
+              className="h-6 w-6 text-muted-foreground hover:text-primary"
+              title="Agrandir la carte"
+              data-testid="fullscreen-map-btn"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
-        {showObstruction && obstructionPoint && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onObstructionClose}
-            className="h-6 px-2 text-xs text-warning"
+        <div style={{ height: "250px" }} className="relative">
+          <MapContainer
+            center={[centerLat, centerLon]}
+            zoom={6}
+            style={{ height: "100%", width: "100%" }}
           >
-            <X className="w-3 h-3 mr-1" /> Fermer obstruction
-          </Button>
-        )}
-      </div>
-      <div style={{ height: "250px" }}>
-        <MapContainer
-          center={[centerLat, centerLon]}
-          zoom={6}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <TileLayer
-            key={mapLayer}
-            attribution={tileConfig.attribution}
-            url={tileConfig.url}
-          />
-          <FitBoundsComponent 
-            stationA={stationA} 
-            stationB={stationB} 
-            obstructionPoint={obstructionPoint}
-            showObstruction={showObstruction}
-          />
-          {/* Station A marker */}
-          <Marker position={[stationA.latitude, stationA.longitude]} icon={stationIcon}>
-          </Marker>
-          {/* Station B marker */}
-          <Marker position={[stationB.latitude, stationB.longitude]} icon={stationIcon}>
-          </Marker>
-          {/* Path line */}
-          <Polyline
-            positions={[
-              [stationA.latitude, stationA.longitude],
-              [stationB.latitude, stationB.longitude]
-            ]}
-            color="#00FF41"
-            weight={2}
-            opacity={0.8}
-            dashArray="5, 10"
-          />
-          {/* Obstruction marker */}
+            <PathMapContent 
+              stationA={stationA}
+              stationB={stationB}
+              obstructionPoint={obstructionPoint}
+              showObstruction={showObstruction}
+              tileConfig={tileConfig}
+              mapLayer={mapLayer}
+              isFullscreen={false}
+            />
+          </MapContainer>
+        </div>
+        <div className="p-2 border-t border-border text-[10px] font-mono text-muted-foreground flex flex-wrap gap-4">
+          <span><span className="inline-block w-2 h-2 rounded-full bg-[#00F0FF] mr-1"></span>{stationA.locator} ({stationA.latitude.toFixed(4)}°, {stationA.longitude.toFixed(4)}°)</span>
+          <span><span className="inline-block w-2 h-2 rounded-full bg-[#00F0FF] mr-1"></span>{stationB.locator} ({stationB.latitude.toFixed(4)}°, {stationB.longitude.toFixed(4)}°)</span>
           {obstructionPoint && (
-            <Marker position={[obstructionPoint.latitude, obstructionPoint.longitude]} icon={obstructionIcon}>
-            </Marker>
+            <span className="text-destructive"><span className="inline-block w-2 h-2 rounded-full bg-destructive mr-1"></span>Obstruction ({obstructionPoint.latitude.toFixed(4)}°, {obstructionPoint.longitude.toFixed(4)}°)</span>
           )}
-        </MapContainer>
+        </div>
       </div>
-      <div className="p-2 border-t border-border text-[10px] font-mono text-muted-foreground flex flex-wrap gap-4">
-        <span><span className="inline-block w-2 h-2 rounded-full bg-[#00F0FF] mr-1"></span>{stationA.locator} ({stationA.latitude.toFixed(4)}°, {stationA.longitude.toFixed(4)}°)</span>
-        <span><span className="inline-block w-2 h-2 rounded-full bg-[#00F0FF] mr-1"></span>{stationB.locator} ({stationB.latitude.toFixed(4)}°, {stationB.longitude.toFixed(4)}°)</span>
-        {obstructionPoint && (
-          <span className="text-destructive"><span className="inline-block w-2 h-2 rounded-full bg-destructive mr-1"></span>Obstruction ({obstructionPoint.latitude.toFixed(4)}°, {obstructionPoint.longitude.toFixed(4)}°)</span>
-        )}
-      </div>
-    </div>
+
+      {/* Fullscreen Map Modal */}
+      {fullscreenOpen && (
+        <div 
+          className="fixed inset-0 z-[9998] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setFullscreenOpen(false)}
+          data-testid="fullscreen-map-overlay"
+        >
+          <div 
+            className="relative w-full h-full max-w-[95vw] max-h-[90vh] bg-card border border-border rounded-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="absolute top-0 left-0 right-0 z-[9999] bg-card/95 border-b border-border p-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-mono text-primary tracking-widest">CARTE DU TRAJET</span>
+                <Select value={mapLayer} onValueChange={onMapLayerChange}>
+                  <SelectTrigger className="h-7 w-[140px] text-xs bg-background/50 border-border">
+                    <Layers className="w-3 h-3 mr-1" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-[99999]">
+                    {Object.entries(MAP_TILES).map(([key, config]) => (
+                      <SelectItem key={key} value={key} className="text-xs">
+                        {config.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setFullscreenOpen(false)}
+                className="text-muted-foreground hover:text-primary"
+                data-testid="close-fullscreen-map-btn"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            {/* Map */}
+            <div className="w-full h-full pt-14">
+              <MapContainer
+                center={[centerLat, centerLon]}
+                zoom={7}
+                style={{ height: "100%", width: "100%" }}
+              >
+                <PathMapContent 
+                  stationA={stationA}
+                  stationB={stationB}
+                  obstructionPoint={obstructionPoint}
+                  showObstruction={showObstruction}
+                  tileConfig={tileConfig}
+                  mapLayer={mapLayer}
+                  isFullscreen={true}
+                />
+              </MapContainer>
+            </div>
+            
+            {/* Footer with coordinates */}
+            <div className="absolute bottom-0 left-0 right-0 z-[9999] bg-card/95 border-t border-border p-3">
+              <div className="flex flex-wrap gap-6 text-xs font-mono text-muted-foreground">
+                <span>
+                  <span className="inline-block w-3 h-3 rounded-full bg-[#00F0FF] mr-2 align-middle"></span>
+                  <strong className="text-foreground">{stationA.locator}</strong> ({stationA.latitude.toFixed(5)}°, {stationA.longitude.toFixed(5)}°)
+                </span>
+                <span>
+                  <span className="inline-block w-3 h-3 rounded-full bg-[#00F0FF] mr-2 align-middle"></span>
+                  <strong className="text-foreground">{stationB.locator}</strong> ({stationB.latitude.toFixed(5)}°, {stationB.longitude.toFixed(5)}°)
+                </span>
+                {obstructionPoint && (
+                  <span className="text-destructive">
+                    <span className="inline-block w-3 h-3 rounded-full bg-destructive mr-2 align-middle"></span>
+                    <strong>Obstruction</strong> ({obstructionPoint.latitude.toFixed(5)}°, {obstructionPoint.longitude.toFixed(5)}°)
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
