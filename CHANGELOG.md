@@ -4,6 +4,20 @@ Toutes les modifications notables de TopoWave sont documentées ici.
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
+## [1.6.0] - 2026-03-20
+
+### Ajouté
+- **Toggle Dark/Light Mode** : Bouton dans le header pour basculer entre le mode sombre et clair
+- **Choix du fond de carte** : Sélecteur de couches pour la carte du trajet et la carte de sélection
+  - CARTO Dark (défaut)
+  - CARTO Light
+  - OpenStreetMap
+  - Satellite (ESRI)
+  - Topographique (OpenTopoMap)
+- Persistance des préférences (thème et couche carte) dans localStorage
+
+---
+
 ## [1.5.0] - 2026-03-20
 
 ### Ajouté

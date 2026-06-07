@@ -4,7 +4,7 @@ import axios from "axios";
 import Plotly from "plotly.js-basic-dist-min";
 import createPlotlyComponent from "react-plotly.js/factory";
 import { Toaster, toast } from "sonner";
-import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search, Coffee, Download, BookOpen } from "lucide-react";
+import { Radio, Target, Mountain, Compass, Ruler, AlertTriangle, CheckCircle, Settings, Info, MapPin, X, Share2, Copy, Search, Coffee, Download, BookOpen, Sun, Moon, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,35 @@ L.Icon.Default.mergeOptions({
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// Map tile providers
+const MAP_TILES = {
+  cartoDark: {
+    name: "CARTO Dark",
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+  },
+  cartoLight: {
+    name: "CARTO Light",
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+  },
+  osm: {
+    name: "OpenStreetMap",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  },
+  satellite: {
+    name: "Satellite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: '&copy; <a href="https://www.esri.com/">Esri</a>'
+  },
+  topo: {
+    name: "Topographique",
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
+  }
+};
+
 // LocalStorage keys
 const LS_KEYS = {
   LOCATOR_A: "vhf_locator_a",
@@ -40,6 +69,8 @@ const LS_KEYS = {
   HEIGHT_B: "vhf_height_b",
   NUM_POINTS: "vhf_num_points",
   BAND: "vhf_band",
+  THEME: "vhf_theme",
+  MAP_LAYER: "vhf_map_layer",
 };
 
 // Amateur radio bands
@@ -187,8 +218,9 @@ const MapPicker = ({ position, onSelect }) => {
 };
 
 // Map Dialog component
-const MapDialog = ({ open, onClose, onSelect, title, initialPosition }) => {
+const MapDialog = ({ open, onClose, onSelect, title, initialPosition, mapLayer, onMapLayerChange }) => {
   const [position, setPosition] = useState(initialPosition);
+  const tileConfig = MAP_TILES[mapLayer] || MAP_TILES.cartoDark;
   
   const handleSelect = (latlng) => {
     if (Array.isArray(latlng)) {
@@ -217,10 +249,25 @@ const MapDialog = ({ open, onClose, onSelect, title, initialPosition }) => {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl w-[95vw] h-[80vh] flex flex-col bg-card border-border p-0 z-[9999]">
         <DialogHeader className="p-4 border-b border-border">
-          <DialogTitle className="font-heading text-primary tracking-widest flex items-center gap-2">
-            <MapPin className="w-5 h-5" />
-            {title}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="font-heading text-primary tracking-widest flex items-center gap-2">
+              <MapPin className="w-5 h-5" />
+              {title}
+            </DialogTitle>
+            <Select value={mapLayer} onValueChange={onMapLayerChange}>
+              <SelectTrigger className="h-7 w-[140px] text-xs bg-background/50 border-border">
+                <Layers className="w-3 h-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(MAP_TILES).map(([key, config]) => (
+                  <SelectItem key={key} value={key} className="text-xs">
+                    {config.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </DialogHeader>
         <div className="flex-1 relative">
           <MapContainer
@@ -230,8 +277,9 @@ const MapDialog = ({ open, onClose, onSelect, title, initialPosition }) => {
             className="z-0"
           >
             <TileLayer
-              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              key={mapLayer}
+              attribution={tileConfig.attribution}
+              url={tileConfig.url}
             />
             <SearchControl onLocationFound={handleSelect} />
             <MapPicker position={position} onSelect={handleSelect} />
@@ -287,7 +335,7 @@ const ShareDialog = ({ open, onClose, shareUrl }) => {
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Partagez ce lien pour permettre à d'autres radioamateurs de voir ce profil de terrain :
+            Partagez ce lien pour permettre à d&apos;autres radioamateurs de voir ce profil de terrain :
           </p>
           <div className="flex gap-2">
             <Input
@@ -332,9 +380,10 @@ const FitBoundsComponent = ({ stationA, stationB, obstructionPoint, showObstruct
   return null;
 };
 
-const PathMap = ({ stationA, stationB, obstructionPoint, showObstruction, onObstructionClose }) => {
+const PathMap = ({ stationA, stationB, obstructionPoint, showObstruction, onObstructionClose, mapLayer, onMapLayerChange }) => {
   const centerLat = (stationA.latitude + stationB.latitude) / 2;
   const centerLon = (stationA.longitude + stationB.longitude) / 2;
+  const tileConfig = MAP_TILES[mapLayer] || MAP_TILES.cartoDark;
   
   // Custom icons
   const stationIcon = new L.DivIcon({
@@ -354,7 +403,22 @@ const PathMap = ({ stationA, stationB, obstructionPoint, showObstruction, onObst
   return (
     <div className="bg-card/50 border border-border" data-testid="path-map">
       <div className="p-2 border-b border-border flex items-center justify-between">
-        <span className="text-xs font-mono text-muted-foreground">CARTE DU TRAJET</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-muted-foreground">CARTE DU TRAJET</span>
+          <Select value={mapLayer} onValueChange={onMapLayerChange}>
+            <SelectTrigger className="h-6 w-[130px] text-[10px] bg-background/50 border-border">
+              <Layers className="w-3 h-3 mr-1" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(MAP_TILES).map(([key, config]) => (
+                <SelectItem key={key} value={key} className="text-xs">
+                  {config.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {showObstruction && obstructionPoint && (
           <Button
             variant="ghost"
@@ -373,8 +437,9 @@ const PathMap = ({ stationA, stationB, obstructionPoint, showObstruction, onObst
           style={{ height: "100%", width: "100%" }}
         >
           <TileLayer
-            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            key={mapLayer}
+            attribution={tileConfig.attribution}
+            url={tileConfig.url}
           />
           <FitBoundsComponent 
             stationA={stationA} 
@@ -450,6 +515,15 @@ function App() {
   // Obstruction map state
   const [showObstructionOnMap, setShowObstructionOnMap] = useState(false);
 
+  // Theme and map layer states
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem(LS_KEYS.THEME);
+    return saved ? saved === 'dark' : true; // Default to dark mode
+  });
+  const [mapLayer, setMapLayer] = useState(() => {
+    return localStorage.getItem(LS_KEYS.MAP_LAYER) || 'cartoDark';
+  });
+
   // Results state
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -516,6 +590,23 @@ function App() {
     }, 500);
     return () => clearTimeout(timer);
   }, [addressB]);
+
+  // Theme toggle effect
+  useEffect(() => {
+    localStorage.setItem(LS_KEYS.THEME, darkMode ? 'dark' : 'light');
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  // Map layer persistence
+  useEffect(() => {
+    localStorage.setItem(LS_KEYS.MAP_LAYER, mapLayer);
+  }, [mapLayer]);
 
   // Handle focus on address input - trigger search if text is present
   const handleAddressFocus = async (station) => {
@@ -878,6 +969,8 @@ function App() {
           onSelect={handleMapSelect}
           title={`SELECTIONNER STATION ${mapDialogStation}`}
           initialPosition={null}
+          mapLayer={mapLayer}
+          onMapLayerChange={setMapLayer}
         />
         
         {/* Share Dialog */}
@@ -894,10 +987,20 @@ function App() {
               <Radio className="w-5 h-5 md:w-6 md:h-6 text-primary" />
               <h1 className="text-base md:text-lg font-heading tracking-widest text-primary">TOPOWAVE</h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2">
               <span className="text-[10px] md:text-xs text-muted-foreground font-mono hidden sm:block">
                 K = 4/3 Earth Model
               </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDarkMode(!darkMode)}
+                className="rounded-none text-muted-foreground hover:text-primary hover:bg-transparent"
+                data-testid="theme-toggle-btn"
+                title={darkMode ? "Mode clair" : "Mode sombre"}
+              >
+                {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1046,7 +1149,7 @@ function App() {
                           <Info className="w-3 h-3 text-muted-foreground" />
                         </TooltipTrigger>
                         <TooltipContent side="right" className="max-w-[200px]">
-                          <p className="text-xs">Hauteur en mètre de l'antenne au dessus du sol</p>
+                          <p className="text-xs">Hauteur en mètre de l&apos;antenne au dessus du sol</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -1187,7 +1290,7 @@ function App() {
                           <Info className="w-3 h-3 text-muted-foreground" />
                         </TooltipTrigger>
                         <TooltipContent side="right" className="max-w-[200px]">
-                          <p className="text-xs">Hauteur en mètre de l'antenne au dessus du sol</p>
+                          <p className="text-xs">Hauteur en mètre de l&apos;antenne au dessus du sol</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -1218,7 +1321,7 @@ function App() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <Label className="text-[10px] md:text-xs uppercase tracking-widest text-muted-foreground">
-                        Points d'echantillonnage
+                        Points d&apos;echantillonnage
                       </Label>
                       <span className="text-[10px] md:text-xs font-mono text-primary">{numPoints}</span>
                     </div>
@@ -1405,6 +1508,8 @@ function App() {
                   obstructionPoint={result.obstruction_point}
                   showObstruction={showObstructionOnMap}
                   onObstructionClose={() => setShowObstructionOnMap(false)}
+                  mapLayer={mapLayer}
+                  onMapLayerChange={setMapLayer}
                 />
               )}
 
@@ -1427,7 +1532,7 @@ function App() {
                   </p>
                 )}
                 <div className="flex items-center justify-between pt-1">
-                  <p className="text-warning/70 italic">Application expérimentale générée avec l'IA</p>
+                  <p className="text-warning/70 italic">Application expérimentale générée avec l&apos;IA</p>
                   <button
                     onClick={() => setMethodologyOpen(true)}
                     className="text-primary hover:text-primary/80 underline underline-offset-2 flex items-center gap-1"
@@ -1456,11 +1561,11 @@ function App() {
                       <ul className="list-disc list-inside space-y-1 ml-2">
                         <li><strong>Field (2 car.)</strong> : 20° lon × 10° lat (ex: JN)</li>
                         <li><strong>Square (4 car.)</strong> : 2° lon × 1° lat (ex: JN18)</li>
-                        <li><strong>Subsquare (6 car.)</strong> : 5' lon × 2.5' lat (~8 km)</li>
-                        <li><strong>Extended (8 car.)</strong> : 30" lon × 15" lat (~500 m)</li>
-                        <li><strong>Super Extended (10 car.)</strong> : 1.25" lon × 0.625" lat (~3 m)</li>
+                        <li><strong>Subsquare (6 car.)</strong> : 5&apos; lon × 2.5&apos; lat (~8 km)</li>
+                        <li><strong>Extended (8 car.)</strong> : 30&quot; lon × 15&quot; lat (~500 m)</li>
+                        <li><strong>Super Extended (10 car.)</strong> : 1.25&quot; lon × 0.625&quot; lat (~3 m)</li>
                       </ul>
-                      <p className="mt-2 text-xs">Les coordonnées retournées correspondent au <em>centre</em> du carreau.</p>
+                      <p className="mt-2 text-xs">Les coordonnées retournées correspondent au centre du carreau.</p>
                     </section>
 
                     <section>
@@ -1475,21 +1580,21 @@ function App() {
                     </section>
 
                     <section>
-                      <h3 className="text-primary font-semibold mb-2">3. Calcul d'Azimut (Great Circle)</h3>
-                      <p className="mb-2">L'azimut initial (bearing) est calculé par :</p>
+                      <h3 className="text-primary font-semibold mb-2">3. Calcul d&apos;Azimut (Great Circle)</h3>
+                      <p className="mb-2">L&apos;azimut initial (bearing) est calculé par :</p>
                       <div className="bg-background/50 p-3 rounded font-mono text-xs">
                         θ = atan2(sin(Δλ) × cos(φ2), cos(φ1) × sin(φ2) − sin(φ1) × cos(φ2) × cos(Δλ))
                       </div>
-                      <p className="mt-2 text-xs">Le résultat est normalisé entre 0° et 360°. L'azimut inverse (B→A) est calculé séparément.</p>
+                      <p className="mt-2 text-xs">Le résultat est normalisé entre 0° et 360°. L&apos;azimut inverse (B→A) est calculé séparément.</p>
                     </section>
 
                     <section>
                       <h3 className="text-primary font-semibold mb-2">4. Modèle de Terre 4/3 (Réfraction)</h3>
-                      <p className="mb-2">La réfraction atmosphérique courbe les ondes radio. Pour les VHF/UHF/SHF, on utilise le modèle de "Terre équivalente" :</p>
+                      <p className="mb-2">La réfraction atmosphérique courbe les ondes radio. Pour les VHF/UHF/SHF, on utilise le modèle de Terre équivalente :</p>
                       <div className="bg-background/50 p-3 rounded font-mono text-xs">
                         R<sub>eff</sub> = K × R<sub>terre</sub> = 4/3 × 6371 km ≈ <strong>8495 km</strong>
                       </div>
-                      <p className="mt-2 text-xs">Ce facteur K = 4/3 représente les conditions atmosphériques "standard" (gradient de réfractivité de -40 N-units/km).</p>
+                      <p className="mt-2 text-xs">Ce facteur K = 4/3 représente les conditions atmosphériques standard (gradient de réfractivité de -40 N-units/km).</p>
                     </section>
 
                     <section>
@@ -1504,13 +1609,13 @@ function App() {
 
                     <section>
                       <h3 className="text-primary font-semibold mb-2">6. Zone de Fresnel</h3>
-                      <p className="mb-2">La première zone de Fresnel définit l'espace où se propage l'essentiel de l'énergie radio. Son rayon varie le long du trajet :</p>
+                      <p className="mb-2">La première zone de Fresnel définit l&apos;espace où se propage l&apos;essentiel de l&apos;énergie radio. Son rayon varie le long du trajet :</p>
                       <div className="bg-background/50 p-3 rounded font-mono text-xs">
                         r<sub>1</sub> = √(λ × d<sub>1</sub> × d<sub>2</sub> / D)
                       </div>
                       <p className="mt-2">Où :</p>
                       <ul className="list-disc list-inside space-y-1 ml-2 text-xs">
-                        <li>λ = c/f (longueur d'onde en mètres)</li>
+                        <li>λ = c/f (longueur d&apos;onde en mètres)</li>
                         <li>d<sub>1</sub> = distance au point depuis A</li>
                         <li>d<sub>2</sub> = distance au point depuis B</li>
                         <li>D = distance totale A-B</li>
@@ -1519,18 +1624,18 @@ function App() {
                     </section>
 
                     <section>
-                      <h3 className="text-primary font-semibold mb-2">7. Détection d'Obstruction</h3>
-                      <p className="mb-2">Un trajet est considéré "OBSTRUCTED" si l'élévation du terrain dépasse la ligne de visée en au moins un point :</p>
+                      <h3 className="text-primary font-semibold mb-2">7. Détection d&apos;Obstruction</h3>
+                      <p className="mb-2">Un trajet est considéré OBSTRUCTED si l&apos;élévation du terrain dépasse la ligne de visée en au moins un point :</p>
                       <div className="bg-background/50 p-3 rounded font-mono text-xs">
                         SI élévation[i] &gt; h<sub>LoS</sub>[i] → OBSTRUCTED
                       </div>
-                      <p className="mt-2 text-xs">Le point d'obstruction affiché est celui avec la plus grande marge positive (terrain − LoS).</p>
+                      <p className="mt-2 text-xs">Le point d&apos;obstruction affiché est celui avec la plus grande marge positive (terrain − LoS).</p>
                     </section>
 
                     <section className="border-t border-border pt-4">
                       <h3 className="text-primary font-semibold mb-2">Sources & Références</h3>
                       <ul className="list-disc list-inside space-y-1 text-xs">
-                        <li><strong>Données d'élévation</strong> : <a href="https://www.opentopodata.org" target="_blank" rel="noopener noreferrer" className="text-primary underline">Open-TopoData</a> (SRTM 30m, NASA/USGS)</li>
+                        <li><strong>Données d&apos;élévation</strong> : <a href="https://www.opentopodata.org" target="_blank" rel="noopener noreferrer" className="text-primary underline">Open-TopoData</a> (SRTM 30m, NASA/USGS)</li>
                         <li><strong>Géocodage</strong> : <a href="https://photon.komoot.io" target="_blank" rel="noopener noreferrer" className="text-primary underline">Photon</a> (Komoot, basé sur OpenStreetMap)</li>
                         <li><strong>Cartes</strong> : <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" className="text-primary underline">OpenStreetMap</a> + tuiles CARTO Dark</li>
                         <li><strong>Maidenhead</strong> : <a href="https://en.wikipedia.org/wiki/Maidenhead_Locator_System" target="_blank" rel="noopener noreferrer" className="text-primary underline">Wikipedia - Maidenhead Locator System</a></li>

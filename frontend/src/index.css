@@ -5,7 +5,8 @@
 @tailwind utilities;
 
 @layer base {
-    :root {
+    :root,
+    .dark {
         --background: 0 0% 2%;
         --foreground: 0 0% 88%;
         --card: 0 0% 4%;
@@ -34,6 +35,36 @@
         --chart-4: 0 100% 50%;
         --chart-5: 270 100% 50%;
     }
+    
+    .light {
+        --background: 0 0% 98%;
+        --foreground: 0 0% 10%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 10%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 10%;
+        --primary: 135 80% 35%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 180 80% 35%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 0 0% 92%;
+        --muted-foreground: 0 0% 45%;
+        --accent: 0 0% 95%;
+        --accent-foreground: 0 0% 10%;
+        --destructive: 0 80% 45%;
+        --destructive-foreground: 0 0% 100%;
+        --warning: 40 90% 45%;
+        --warning-foreground: 0 0% 0%;
+        --border: 0 0% 85%;
+        --input: 0 0% 85%;
+        --ring: 135 80% 35%;
+        --radius: 0px;
+        --chart-1: 135 80% 35%;
+        --chart-2: 180 80% 35%;
+        --chart-3: 40 90% 45%;
+        --chart-4: 0 80% 45%;
+        --chart-5: 270 80% 45%;
+    }
 }
 
 @layer base {
@@ -53,10 +84,17 @@
 }
 
 /* Tactical Grid Background */
-.tactical-grid {
+.dark .tactical-grid {
     background-image: 
         linear-gradient(to right, rgba(0, 255, 65, 0.03) 1px, transparent 1px),
         linear-gradient(to bottom, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+
+.light .tactical-grid {
+    background-image: 
+        linear-gradient(to right, rgba(26, 140, 62, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(26, 140, 62, 0.05) 1px, transparent 1px);
     background-size: 40px 40px;
 }
 
@@ -135,9 +173,13 @@
 
 /* Input Styling */
 .tactical-input {
-    @apply bg-black border border-border font-mono text-sm tracking-widest uppercase;
+    @apply bg-background border border-border font-mono text-sm tracking-widest uppercase;
     @apply focus:border-primary focus:ring-1 focus:ring-primary/50;
     @apply placeholder:text-muted-foreground/50 placeholder:normal-case;
+}
+
+.dark .tactical-input {
+    @apply bg-black;
 }
 
 /* Metric Card */
@@ -188,76 +230,148 @@
 }
 
 
-/* Leaflet map customizations */
-.leaflet-container {
+/* Leaflet map customizations - Dark mode */
+.dark .leaflet-container {
   background: #0a0a0a !important;
   font-family: 'JetBrains Mono', monospace;
 }
 
-.leaflet-control-zoom a {
+.dark .leaflet-control-zoom a {
   background: #0a0a0a !important;
   color: #00FF41 !important;
   border-color: #333 !important;
 }
 
-.leaflet-control-zoom a:hover {
+.dark .leaflet-control-zoom a:hover {
   background: #111 !important;
 }
 
-.leaflet-control-attribution {
+.dark .leaflet-control-attribution {
   background: rgba(10, 10, 10, 0.8) !important;
   color: #666 !important;
   font-size: 9px !important;
 }
 
-.leaflet-control-attribution a {
+.dark .leaflet-control-attribution a {
   color: #00FF41 !important;
 }
 
-/* Leaflet Geosearch customization */
-.leaflet-control-geosearch {
+/* Leaflet map customizations - Light mode */
+.light .leaflet-container {
+  background: #f5f5f5 !important;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.light .leaflet-control-zoom a {
+  background: #fff !important;
+  color: #1a8c3e !important;
+  border-color: #ddd !important;
+}
+
+.light .leaflet-control-zoom a:hover {
+  background: #f0f0f0 !important;
+}
+
+.light .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #666 !important;
+  font-size: 9px !important;
+}
+
+.light .leaflet-control-attribution a {
+  color: #1a8c3e !important;
+}
+
+/* Leaflet Geosearch customization - Dark mode */
+.dark .leaflet-control-geosearch {
   background: #0a0a0a !important;
   border: 1px solid #333 !important;
 }
 
-.leaflet-control-geosearch form {
+.dark .leaflet-control-geosearch form {
   background: #0a0a0a !important;
 }
 
-.leaflet-control-geosearch form input {
+.dark .leaflet-control-geosearch form input {
   background: #0a0a0a !important;
   color: #e0e0e0 !important;
   font-family: 'JetBrains Mono', monospace !important;
   border: 1px solid #333 !important;
 }
 
-.leaflet-control-geosearch form input::placeholder {
+.dark .leaflet-control-geosearch form input::placeholder {
   color: #666 !important;
 }
 
-.leaflet-control-geosearch .results {
+.dark .leaflet-control-geosearch .results {
   background: #0a0a0a !important;
   border: 1px solid #333 !important;
 }
 
-.leaflet-control-geosearch .results > * {
+.dark .leaflet-control-geosearch .results > * {
   background: #0a0a0a !important;
   color: #e0e0e0 !important;
   border-bottom: 1px solid #222 !important;
 }
 
-.leaflet-control-geosearch .results > *:hover {
+.dark .leaflet-control-geosearch .results > *:hover {
   background: rgba(0, 255, 65, 0.1) !important;
   color: #00FF41 !important;
 }
 
-.leaflet-control-geosearch a.reset {
+.dark .leaflet-control-geosearch a.reset {
   background: #0a0a0a !important;
   color: #888 !important;
 }
 
-.leaflet-control-geosearch a.reset:hover {
+.dark .leaflet-control-geosearch a.reset:hover {
   color: #00FF41 !important;
+}
+
+/* Leaflet Geosearch customization - Light mode */
+.light .leaflet-control-geosearch {
+  background: #fff !important;
+  border: 1px solid #ddd !important;
+}
+
+.light .leaflet-control-geosearch form {
+  background: #fff !important;
+}
+
+.light .leaflet-control-geosearch form input {
+  background: #fff !important;
+  color: #333 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  border: 1px solid #ddd !important;
+}
+
+.light .leaflet-control-geosearch form input::placeholder {
+  color: #999 !important;
+}
+
+.light .leaflet-control-geosearch .results {
+  background: #fff !important;
+  border: 1px solid #ddd !important;
+}
+
+.light .leaflet-control-geosearch .results > * {
+  background: #fff !important;
+  color: #333 !important;
+  border-bottom: 1px solid #eee !important;
+}
+
+.light .leaflet-control-geosearch .results > *:hover {
+  background: rgba(26, 140, 62, 0.1) !important;
+  color: #1a8c3e !important;
+}
+
+.light .leaflet-control-geosearch a.reset {
+  background: #fff !important;
+  color: #888 !important;
+}
+
+.light .leaflet-control-geosearch a.reset:hover {
+  color: #1a8c3e !important;
 }
 
 /* Mobile responsive adjustments */
