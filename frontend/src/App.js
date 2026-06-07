@@ -259,7 +259,7 @@ const MapDialog = ({ open, onClose, onSelect, title, initialPosition, mapLayer, 
                 <Layers className="w-3 h-3 mr-1" />
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[99999]">
                 {Object.entries(MAP_TILES).map(([key, config]) => (
                   <SelectItem key={key} value={key} className="text-xs">
                     {config.name}
@@ -410,7 +410,7 @@ const PathMap = ({ stationA, stationB, obstructionPoint, showObstruction, onObst
               <Layers className="w-3 h-3 mr-1" />
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[9999]">
               {Object.entries(MAP_TILES).map(([key, config]) => (
                 <SelectItem key={key} value={key} className="text-xs">
                   {config.name}
